@@ -1,0 +1,31 @@
+target-version = "py311"
+line-length = 120
+
+extend-exclude = ["*.ipynb"]
+
+[lint]
+select = [
+    "F", # pyflakes
+    "E", # pycodestyle
+    "W", # pycodestyle warnings
+    "I", # isort
+]
+ignore = [
+    "E701", # Multiple statements on one line (colon)
+    "E731", # Do not assign a `lambda` expression, use a `def`
+    "E741", # allow `I` or `l` variables
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401", "F403", "F405"]
+
+[lint.isort]
+combine-as-imports = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+split-on-trailing-comma = true
+
+[format]
+skip-magic-trailing-comma = false
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

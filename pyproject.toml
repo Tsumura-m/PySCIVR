@@ -1,0 +1,37 @@
+[project]
+name = "pyscivr"
+version = "0.1.0"
+description = "Semiclassical initial value representation in curvilinear coordinates"
+readme = "README.md"
+authors = [
+    { name = "Masaya Tsumura"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "scipy",
+    "jax",
+]
+
+[project.optional-dependencies]
+mace = [
+    "ase",
+    "torch",
+    "mace-torch",
+]
+cuda = [
+    "jax[cuda12]",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+]
+
+[project.scripts]
+pyscivr = "pyscivr:main"
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
