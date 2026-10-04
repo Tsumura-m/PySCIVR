@@ -149,7 +149,7 @@ def _build_shake_rattle(coord_const, dt, mass, max_iter_shake, tol_shake, rcond)
 
         return mome_mwc_new, mome_mwc_new * sqrt_mass_flat, mu, G_pinv_mwc
 
-    return shake_step, rattle_step, initialize, sqrt_mass_flat
+    return initialize, shake_step, rattle_step, sqrt_mass_flat
 
 
 class ShakeRattle(Integrator):

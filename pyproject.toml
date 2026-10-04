@@ -27,6 +27,7 @@ cuda = [
 [dependency-groups]
 dev = [
     "ruff",
+    "pytest",
 ]
 
 [project.scripts]
