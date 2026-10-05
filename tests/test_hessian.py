@@ -1,5 +1,3 @@
-"""hydrogen_rot.ipynb, hydrogen_rovib.ipynb から移植したテスト."""
-
 import numpy as np
 import pytest
 from _utils import h2_initial_momenta

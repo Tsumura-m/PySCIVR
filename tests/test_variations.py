@@ -19,7 +19,6 @@ from pyscivr.variations import (
     to_internal,
 )
 
-@pytest.mark.slow
 def test_shake_rattle_monodromy_matches_finite_difference(h2, tmp_path):
     mass, posi_ref = h2["mass"], h2["posi_ref"]
     calc = H2SplinePotential()
