@@ -3,8 +3,8 @@ import numpy as np
 import pytest
 from _utils import get_S, h2_initial_momenta, quat_to_mat, rot_axis
  
-from pyscivr.coordinates import InternalCoordinates
-from pyscivr.integrators import ImplicitVerlet, ShakeRattle, quaternion_metric
+from pyscivr.coordinates import InternalCoordinates, quaternion_metric
+from pyscivr.integrators import ImplicitVerlet, ShakeRattle
 from pyscivr.potentials import H2SplinePotential
 from pyscivr.units import CmInv, FemtoSec
 from pyscivr.utils import get_inertia, get_mass_center

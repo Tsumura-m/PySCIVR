@@ -29,7 +29,7 @@ def test_action_exact_for_cubic_at_even_steps(n):
 def test_lagrangian():
     ener_tot = np.array([1.0, 1.0])
     ener_pot = np.array([0.3, 0.6])
-    np.testing.assert_allclose(get_lagrangian(ener_tot, ener_pot, 0.2), [0.6, 0.0], atol=1e-12)
+    np.testing.assert_allclose(get_lagrangian(ener_tot, ener_pot, ener_ref=0.2), [0.6, 0.0], atol=1e-12)
 
 # ---------------------------------------------------------------- prefactor
 
@@ -65,8 +65,8 @@ def test_spectrum_fft_matches_naive():
     valid = rng.uniform(size=n_step) > 0.1
 
     ener_grid, spec_fft = get_ta_spectrum_fft(pref, ovlp, action, dt, n_fft, valid)
-    spec_naive = get_ta_spectrum_naive(pref, ovlp, action, dt, ener_grid[:100], valid)
-    np.testing.assert_allclose(spec_naive * (n_step - 1), spec_fft[:100] * n_step, rtol=1e-8)
+    _, spec_naive = get_ta_spectrum_naive(pref, ovlp, action, dt, ener_grid[:100], valid)
+    np.testing.assert_allclose(spec_naive, spec_fft[:100], rtol=1e-8)
 
 # ---------------------------------------------------------------- overlap
 

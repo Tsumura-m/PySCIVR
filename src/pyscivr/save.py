@@ -1,6 +1,26 @@
+"""Saving and loading of trajectories and Hessians in the ``.npz`` format.
+
+See sections II B 2 and II C of the paper for details.
+
+Notation:
+    - ``N``: number of atoms.
+    - ``T``: number of time steps of the trajectory.
+    - ``K``: number of constraints.
+    - ``S``: number of steps at which the Hessian is evaluated.
+    - ``m``: number of active coordinates.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from .hessian import interpolate_hessian, projected_hessian
+
+if TYPE_CHECKING:
+    from .coordinates import InternalCoordinates
 
 TRAJ_KEYS = ["posi", "mome", "force", "potential_energy", "total_energy"]
 
@@ -8,40 +28,68 @@ TRAJ_KEYS = ["posi", "mome", "force", "potential_energy", "total_energy"]
 # trajectory save/load
 ##################################################################################################
 
-def save_trajectory(fpath, traj, **meta):
-    """
-    Save a trajectory.
+def save_trajectory(fpath: str, traj: dict[str, Any], **meta: Any) -> None:
+    """Save a trajectory.
 
-    fpath : path to save the trajectory
-    traj : dict with keys of TRAJ_KEYS"""
+    Only the keys ``(posi, mome, force, potential_energy, total_energy, dt, mass)``
+    are saved.
+    The Lagrange multipliers ``lam`` and ``mu`` are not saved, since they can be
+    restored by :func:`load_trajectory`.
+
+    Args:
+        fpath: Path to save the trajectory.
+        traj: Trajectory returned by :meth:`pyscivr.integrators.Integrator.run`.
+        **meta: Additional metadata to save with the trajectory.
+    """
     data = {key: traj[key] for key in TRAJ_KEYS if key in traj}
     data["dt"] = np.asarray(traj["dt"])
     data["mass"] = np.asarray(traj["mass"])
     np.savez(fpath, **data, **meta)
 
-def restore_multipliers(coord_const, posi, mome, force, mass, dt, atol=1e-10):
-    """Restore the Lagrange multipliers (lam, mu) from the trajectory.
+def restore_multipliers(
+        coord_const: InternalCoordinates,
+        posi: ArrayLike,
+        mome: ArrayLike,
+        force: ArrayLike,
+        mass: ArrayLike,
+        dt: float,
+        *,
+        atol: float = 1e-10) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    r"""Restore the Lagrange multipliers of SHAKE/RATTLE from a trajectory.
 
-    q_{n+1} - q~_{n+1} = dt M^{-1} G_{n}^T lam_{n}
-    (q~_{n+1} = q_n + dt M^{-1} p_n + 0.5 dt^2 M^{-1} F_n)
+    The multipliers are obtained by solving (Eqs. (25)-(27) in the paper)
 
-    p_{n+1} - p~_{n+1} = G_{n+1}^T mu_{n+1}
-    (p~_{n+1} = p_n + 0.5 dt (F_n + F_{n+1}) + G_{n}^T lam_{n})
+    .. math::
 
-    coord_const : InternalCoordinates for constraints
-    posi    : (T, 3N) positions
-    mome    : (T, 3N) momenta
-    force   : (T, 3N) forces
-    mass    : (N,) atomic masses
-    dt      : time step
-    atol    : tolerance for checking the residuals
+        q_{n+1} - \tilde{q}_{n+1} &= \Delta t M^{-1} \mathcal{G}(q_{n})^T \lambda_{n}, \quad
+        \tilde{q}_{n+1} = q_n + \Delta t M^{-1} p_n + \frac{\Delta t^2}{2} M^{-1} F(q_n)
 
-    returns:
-        lam : (T, K) restored Lagrange multipliers for position constraints
-        mu  : (T, K) restored Lagrange multipliers for momentum constraints
+        p_{n+1} - \tilde{p}_{n+1} &= \mathcal{G}(q_{n+1})^T \mu_{n+1}, \quad
+        \tilde{p}_{n+1} = p_n + \frac{\Delta t}{2} (F(q_n) + F(q_{n+1})) + \mathcal{G}(q_{n})^T \lambda_{n}
+
+    in the least-squares sense, and the residuals are checked to be small.
+
+    Args:
+        coord_const: InternalCoordinates defining the ``K`` constraints,
+            the same as used in :class:`pyscivr.integrators.ShakeRattle`.
+        posi: ``(T, N, 3)`` or ``(T, 3N)`` positions.
+        mome: ``(T, N, 3)`` or ``(T, 3N)`` momenta.
+        force: ``(T, N, 3)`` or ``(T, 3N)`` forces.
+        mass: ``(N,)`` atomic masses.
+        dt: Time step.
+        atol: Absolute tolerance for checking the residuals.
+
+    Returns:
+        ``(lam, mu)``, where
+
+        - ``lam``: ``(T, K)`` Lagrange multipliers for position constraints.
+        - ``mu``: ``(T, K)`` Lagrange multipliers for momentum constraints.
+
+    Raises:
+        AssertionError: If the residuals exceed ``atol``, i.e., the trajectory is
+            not consistent with SHAKE/RATTLE under ``coord_const``.
     """
-
-    n_step = posi.shape[0]
+    n_step = len(posi)
     mass_inv = 1.0 / np.repeat(np.asarray(mass), 3)
     posi = np.asarray(posi, dtype=float).reshape(n_step, -1)  # (T, 3N)
     mome = np.asarray(mome, dtype=float).reshape(n_step, -1)  # (T, 3N)
@@ -72,12 +120,20 @@ def restore_multipliers(coord_const, posi, mome, force, mass, dt, atol=1e-10):
         f"Momentum residuals are not close to zero. max residual {np.max(np.abs(res_mome))}"
     return lam, mu
 
-def load_trajectory(fpath, coord_const=None):
-    """Load a trajectory. lam and mu are restored if coord_const is provided.
+def load_trajectory(fpath: str, coord_const: InternalCoordinates | None = None) -> dict[str, Any]:
+    """Load a trajectory saved by :func:`save_trajectory`.
 
-    returns dict with keys of TRAJ_KEYS + dt, mass, (+ lam, mu)
+    Args:
+        fpath: Path to the saved trajectory.
+        coord_const: InternalCoordinates defining the constraints,
+            the same as used in :class:`pyscivr.integrators.ShakeRattle`.
+            If provided, the Lagrange multipliers ``lam`` and ``mu`` are restored by :func:`restore_multipliers`.
+
+    Returns:
+        Trajectory with keys of ``(posi, mome, force, potential_energy, total_energy, dt, mass)``,
+        and additional data saved as ``meta``.
+        If ``coord_const`` is provided, the Lagrange multipliers ``lam`` and ``mu`` are also included.
     """
-
     with np.load(fpath) as f:
         traj = {key: f[key] for key in f.files}
     traj["dt"] = float(traj["dt"])
@@ -93,21 +149,35 @@ def load_trajectory(fpath, coord_const=None):
 # Hessian
 ##################################################################################################
 
-def save_hessian(fpath, steps, hess, posi, coord_all, active_idx, **meta):
-    """Save the projected Hessians or Hessians. (H or P^T H P (P = A_A B_A) (3N, 3N))
-    To save the memory, the (projected) Hessians are saved in the form of H A_A (3N, K)
-    The projected Hessian can be restored by P^T H P = P (H A_A) B_A using load_hessian().
+def save_hessian(
+        fpath: str,
+        steps: ArrayLike,
+        hess: ArrayLike,
+        posi: ArrayLike,
+        coord_all: InternalCoordinates,
+        active_idx: ArrayLike,
+        **meta: Any) -> None:
+    r"""Save the Hessians or projected Hessians in a compressed form.
 
-    steps : (S,) indices of the steps where the Hessians are evaluated
-    hess  : (S, 3N, 3N) Hessians or projected Hessians
-    posi  : (T, 3N) all positions
-    coord_all : InternalCoordinates for coordinate transformation
-    active_idx : (m,) indices of the active coordinates
+    To save the storage, the ``(S, 3N, 3N)`` full Hessians :math:`K` are saved as
+    ``K A_A`` of shape ``(S, 3N, m)`` (see also :func:`pyscivr.hessian.eval_hess_active`).
+    The projected Hessians ``\mathfrak{P}^T K \mathfrak{P}`` can be restored by :func:`load_hessian`.
 
-    returns:
-        saves the Hessians to fpath in npz format with keys of steps, hess, active_idx
+    Args:
+        fpath: Path to save the Hessians.
+        steps: ``(S,)`` indices of the steps where the Hessians are evaluated.
+        hess: ``(S, 3N, 3N)`` Hessians or projected Hessians.
+        posi: ``(T, N, 3)`` or ``(T, 3N)`` positions of the trajectory.
+        coord_all: InternalCoordinates for the full system. It must define ``3N``
+            coordinates for coordinate transformation.
+        active_idx: ``(m,)`` row indices of the active coordinates in ``coord_all``,
+            in the row order after :meth:`build()`.
+        **meta: Additional metadata to save with the Hessians.
+
+    Note:
+        The file contains the keys ``steps``, ``hess`` and ``active_idx``,
+        in addition to ``meta``.
     """
-
     data = dict(steps=np.asarray(steps))
     active_idx = np.asarray(active_idx, dtype=int)
     posi = np.asarray(posi, dtype=float).reshape(len(posi), -1)
@@ -122,19 +192,33 @@ def save_hessian(fpath, steps, hess, posi, coord_all, active_idx, **meta):
     np.savez(fpath, **data, **meta)
 
 
-def load_hessian(fpath, coord_all, posi, n_step=None, symmetrize=True):
-    """Restore the projected Hessians from the saved file.
-    P^T H P = P^T (H A_A) B_A  (P = A_A B_A)
-    Due to the idempotency of P, the same Hessian can be restored whether the Hessian is projected or not.
 
-    coord_all : InternalCoordinates for coordinate transformation
-    posi    : (T, 3N) all positions
-    n_step  : if given, the Hessian is interpolated (cubic spline) to all steps (0, 1, ..., n_step-1)
-    symmetrize : if True, the Hessian is symmetrized
+def load_hessian(fpath: str,
+                 coord_all: InternalCoordinates,
+                 posi: ArrayLike,
+                 n_step=None,
+                 symmetrize=True) -> tuple[NDArray[np.int64], NDArray[np.float64]]:
+    r"""Restore the projected Hessians saved by :func:`save_hessian`.
 
-    return steps (S,), hess (S, 3N, 3N) or (n_step, 3N, 3N)
+    The projected Hessians are restored as :math:`\mathfrak{P}^T K \mathfrak{P}`, where :math:`\mathfrak{P} = A_A B_A`.
+    Since :math:`\mathfrak{P}` is idempotent, the same Hessians can be restored
+    whether the Hessians are projected or not.
+
+    Args:
+        fpath: Path to the saved Hessians.
+        coord_all: InternalCoordinates for the full system. It must define ``3N``
+            coordinates for coordinate transformation.
+        posi: ``(T, N, 3)`` or ``(T, 3N)`` positions of the trajectory.
+        n_step: If given, the Hessians are interpolated (cubic spline) to all steps.
+            ``(0, 1, ..., n_step-1)`` (see :func:`pyscivr.hessian.interpolate_hessian`).
+        symmetrize: If True, the Hessians are symmetrized.
+
+    Returns:
+        ``(steps, hess)``, where
+
+        - ``steps``: ``(S,)`` indices of the steps where the Hessians are evaluated.
+        - ``hess``: ``(S, 3N, 3N)`` projected Hessians, or ``(n_step, 3N, 3N)`` if ``n_step`` is given.
     """
-
     with np.load(fpath) as f:
         steps = f["steps"]
         hess = f["hess"]

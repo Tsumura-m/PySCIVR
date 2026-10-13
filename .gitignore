@@ -10,4 +10,8 @@ wheels/
 .venv
 
 
+# Optional
 .npz
+.DS_Store
+dev/
+docs/_build/

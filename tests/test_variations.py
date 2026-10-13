@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from _utils import get_S, h2_initial_momenta
 
-from pyscivr.coordinates import InternalCoordinates
-from pyscivr.integrators import ImplicitVerlet, ShakeRattle, quaternion_metric
+from pyscivr.coordinates import InternalCoordinates, quaternion_metric
+from pyscivr.integrators import ImplicitVerlet, ShakeRattle
 from pyscivr.potentials import H2SplinePotential
 from pyscivr.save import load_trajectory, save_trajectory
 from pyscivr.units import CmInv, FemtoSec

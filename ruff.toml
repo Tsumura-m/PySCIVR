@@ -1,7 +1,7 @@
-target-version = "py311"
+target-version = "py313"
 line-length = 120
 
-extend-exclude = ["*.ipynb", "tests"]
+extend-exclude = ["*.ipynb", "tests", "docs", "venv"]
 
 [lint]
 select = [
@@ -9,15 +9,21 @@ select = [
     "E", # pycodestyle
     "W", # pycodestyle warnings
     "I", # isort
+    "D", # pydocstyle
 ]
 ignore = [
     "E701", # Multiple statements on one line (colon)
     "E731", # Do not assign a `lambda` expression, use a `def`
     "E741", # allow `I` or `l` variables
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in `__init__`
 ]
 
 [lint.per-file-ignores]
 "__init__.py" = ["F401", "F403", "F405"]
+
+[lint.pydocstyle]
+convention = "google"
 
 [lint.isort]
 combine-as-imports = true

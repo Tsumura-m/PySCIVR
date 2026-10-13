@@ -1,19 +1,46 @@
+"""Potential energy calculators.
+
+All calculators take positions in Angstrom and return energies in eV,
+forces in eV/Angs and Hessians in eV/Angs^2.
+
+Notation:
+    - ``N``: number of atoms.
+"""
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import CubicSpline
 
 from .units import Hartree
 
+if TYPE_CHECKING:
+    from ase.calculators.calculator import Calculator as ASECalculator
 
-def _as_batch(positions):
-    """Ensure positions have a batch axis."""
+def _as_batch(positions: ArrayLike) -> tuple[NDArray[np.float64], bool]:
+    """Ensure positions have a batch axis.
+
+    Args:
+        positions: ``(N, 3)`` or ``(n_batch, N, 3)`` positions.
+
+    Returns:
+        ``(x, is_single)``, where ``x`` is ``(n_batch, N, 3)`` positions and
+        ``is_single`` is ``True`` if a batch axis was added.
+
+    Raises:
+        ValueError: If ``positions`` is neither 2D nor 3D.
+    """
     x = np.asarray(positions, dtype=float)
     if x.ndim == 2:
         return x[None], True
     if x.ndim == 3:
         return x, False
-    raise ValueError(f"positions must be (N, 3) or (B, N, 3), got {x.shape}")
+    raise ValueError(f"positions must be (N, 3) or (n_batch, N, 3), got {x.shape}")
 
 
 ##################################################################################################
@@ -21,34 +48,81 @@ def _as_batch(positions):
 ##################################################################################################
 
 class Calculator(ABC):
-    """Base class for potential energy calculators."""
+    """Base class for potential energy calculators.
+
+    Subclasses implement :meth:`_energy_forces_batch` and optionally :meth:`_hessian_batch`
+    for a batch of geometries. The public methods accept either a single geometry ``(N, 3)``
+    or a batch of geometries ``(n_batch, N, 3)``, and return the results without the batch axis
+    for a single geometry.
+    """
 
     @abstractmethod
-    def _energy_forces_batch(self, x):
-        """"x : (B, N, 3) -> energy : (B,), forces : (B, N, 3)"""
+    def _energy_forces_batch(self,
+                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Compute the energies and forces for a batch of geometries.
+
+        Args:
+            x: ``(n_batch, N, 3)`` positions [Angs].
+
+        Returns:
+            ``(energy, forces)``, with shape ``(n_batch,)`` [eV] and ``(n_batch, N, 3)`` [eV/Angs].
+        """
         pass
 
-    def _hessian_batch(self, x):
-        """x : (B, N, 3) -> hessian : (B, 3N, 3N)"""
-        raise NotImplementedError(f"{type(self).__name__} does not implement an analytic Hessian."
-                                   "Use finite differences in hessian.py.")
+    def _hessian_batch(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Compute the Hessians for a batch of geometries.
 
-    def energy_forces(self, positions):
-        """positions [Angs] -> (energy [eV], forces [eV/Angs])"""
+        Args:
+            x: ``(n_batch, N, 3)`` positions [Angs].
+
+        Returns:
+            ``(n_batch, 3N, 3N)`` Hessians [eV/Angs^2].
+
+        Raises:
+            NotImplementedError: If the subclass does not implement an analytic Hessian.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not implement an analytic Hessian."
+                                   " Use finite differences in hessian.py.")
+
+    def energy_forces(self,
+                      positions: ArrayLike) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Compute the energy and forces for a single geometry or a batch of geometries.
+
+        Args:
+            positions: ``(N, 3)`` or ``(n_batch, N, 3)`` positions [Angs].
+
+        Returns:
+            ``(energy, forces)`` [eV, eV/Angs], with shapes ``()`` and ``(N, 3)``
+            for a single geometry, or ``(n_batch,)`` and ``(n_batch, N, 3)`` for a batch.
+        """
         x, is_single = _as_batch(positions)
         ener, force = self._energy_forces_batch(x)
         if is_single:
             return ener[0], force[0]
         return ener, force
 
-    def energy(self, positions):
+    def energy(self, positions: ArrayLike) -> NDArray[np.float64]:
+        """Compute the energy [eV] (see :meth:`energy_forces`)."""
         return self.energy_forces(positions)[0]
 
-    def forces(self, positions):
+    def forces(self, positions: ArrayLike) -> NDArray[np.float64]:
+        """Compute the forces [eV/Angs] (see :meth:`energy_forces`)."""
         return self.energy_forces(positions)[1]
 
-    def hessian(self, positions):
-        """positions [Angs] -> hessian [eV/Angs^2]"""
+    def hessian(self, positions: ArrayLike) -> NDArray[np.float64]:
+        """Compute the analytical Hessian.
+
+        Args:
+            positions: ``(N, 3)`` or ``(n_batch, N, 3)`` positions [Angs].
+
+        Returns:
+            ``(3N, 3N)`` Hessian [eV/Angs^2] for a single geometry,
+            or ``(n_batch, 3N, 3N)`` for a batch.
+
+        Raises:
+            NotImplementedError: If the subclass does not implement an analytic Hessian.
+                Use :func:`pyscivr.hessian.eval_hess_active` instead.
+        """
         x, is_single = _as_batch(positions)
         hess = self._hessian_batch(x)
         if is_single:
@@ -57,25 +131,25 @@ class Calculator(ABC):
 
 
 # V(q) = 0
-class NullPotential(Calculator):
-    """Zero potential energy calculator. Forces and Hessian are zero.
-    """
+class ZeroPotential(Calculator):
+    """Zero potential. The energies, forces and Hessians are all zero."""
 
-    def _energy_forces_batch(self, x):
+    def _energy_forces_batch(self,
+                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         n_batch, n_atoms, _ = x.shape
         return np.zeros(n_batch), np.zeros_like(x)
 
-    def _hessian_batch(self, x):
+    def _hessian_batch(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         n_batch, n_atoms, _ = x.shape
         return np.zeros((n_batch, n_atoms * 3, n_atoms * 3))
 
 
 
 ###################################################################################################
-# hydrogen : CCSD(T)/aug-cc-pV5Z scan + cubic spline
+# hydrogen: CCSD(T)/aug-cc-pV5Z scan + cubic spline
 ###################################################################################################
 
-_H2_ENENER_HARTREE = np.array([
+_H2_ENERGY_HARTREE = np.array([
     -0.98163485470E+00,-0.10146982768E+01,-0.10427841611E+01,-0.10666345859E+01,-0.10868635139E+01,-0.11039825385E+01,
     -0.11184206959E+01,-0.11305398917E+01,-0.11406470591E+01,-0.11490038686E+01,-0.11558343459E+01,-0.11613312863E+01,
     -0.11656611580E+01,-0.11689682309E+01,-0.11713779485E+01,-0.11729997224E+01,-0.11739292665E+01,-0.11742505492E+01,
@@ -88,28 +162,40 @@ _H2_ENENER_HARTREE = np.array([
     -0.10707813591E+01,-0.10681159100E+01])
 
 # 0.4 ~ 1.5 Angstroms, 0.02 Angstrom spacing
-_H2_DIST_ANGS = 0.4 + np.arange(len(_H2_ENENER_HARTREE)) * 0.02
+_H2_DIST_ANGS = 0.4 + np.arange(len(_H2_ENERGY_HARTREE)) * 0.02
 
 
 class H2SplinePotential(Calculator):
-    """H2 potential energy calculator using cubic spline interpolation.
+    r"""H2 potential by cubic spline interpolation of CCSD(T)/aug-cc-pV5Z scan.
 
-    Forces and Hessian are exact derivatives of the spline:
-        H_BB = V''(r) u u^T + V'(r) / r (I - u u^T),  u = (x_j - x_i) / r
+    The potential :math:`V(r)` depends only on the bond length :math:`r` between the two atoms.
+    The forces and Hessians are the exact derivatives of the spline,
+    with the Hessian blocks ``H_ii = H_jj = H_BB`` and ``H_ij = H_ji = -H_BB``, where
+
+    .. math::
+
+        H_{BB} = V''(r) \hat{u}\hat{u}^T + \frac{V'(r)}{r} (I - \hat{u}\hat{u}^T), \quad
+        \hat{u} = \frac{q_j - q_i}{r}
+
+    Warning:
+        The scan covers only 0.4 to 1.5 Angs (0.02 Angs spacing).
+        The spline is not reliable outside this range.
     """
 
-    def __init__(self, atom_indices=(0, 1)):
-        self._spline = CubicSpline(_H2_DIST_ANGS, _H2_ENENER_HARTREE * Hartree)
-        self.atom_indices = tuple(atom_indices)
+    def __init__(self) -> None:
+        self._spline = CubicSpline(_H2_DIST_ANGS, _H2_ENERGY_HARTREE * Hartree)
+        self.atom_indices = tuple((0, 1))
 
-    def _bond(self, x):
+    def _bond(self,
+              x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         i, j = self.atom_indices
         d = x[:, j] - x[:, i]
         r = np.linalg.norm(d, axis=1)
         u = d / r[:, None]
         return r, u
 
-    def _energy_forces_batch(self, x):
+    def _energy_forces_batch(self,
+                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         i, j = self.atom_indices
         r, u = self._bond(x)
         ener = self._spline(r)
@@ -120,7 +206,8 @@ class H2SplinePotential(Calculator):
         force[:, j] = -g_B
         return ener, force
 
-    def _hessian_batch(self, x):
+    def _hessian_batch(self,
+                       x: NDArray[np.float64]) -> NDArray[np.float64]:
         i, j = self.atom_indices
         r, u = self._bond(x)
         dv = self._spline(r, 1)  # V'(r)
@@ -144,15 +231,24 @@ class H2SplinePotential(Calculator):
 ##################################################################################################
 
 class ASEPotential(Calculator):
-    """Wrapper for ASE calculators. Geometries in a batch are evaluated sequentially for now."""
+    """Wrapper for ASE calculators.
 
-    def __init__(self, symbols, calc):
+    Geometries in a batch are evaluated sequantially.
+    The analytical Hessian is not available.
+
+    Args:
+        symbols: ``(N,)`` atomic symbols.
+        calc: ASE calculator.
+    """
+
+    def __init__(self, symbols: Sequence[str], calc: ASECalculator) -> None:
         from ase import Atoms
 
         self.atoms = Atoms(symbols=symbols, positions=np.zeros((len(symbols), 3)))
         self.atoms.calc = calc
 
-    def _energy_forces_batch(self, x):
+    def _energy_forces_batch(self,
+                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         ener = np.empty(len(x))
         force = np.empty_like(x)
         for i, pos in enumerate(x):
@@ -162,10 +258,11 @@ class ASEPotential(Calculator):
         return ener, force
 
 
-def _patch_torch_jit_load_cpu():
+def _patch_torch_jit_load_cpu() -> None:
+    """Patch torch.jit.load to always load on CPU."""
     import torch
 
-    if hasattr(torch.jit, "__is_patched__"):
+    if hasattr(torch.jit.load, "__is_patched__"):
         return
     _real = torch.jit.load
 
@@ -174,8 +271,22 @@ def _patch_torch_jit_load_cpu():
     _jit_load_cpu.__is_patched__ = True
     torch.jit.load = _jit_load_cpu
 
-def mace_anicc_potential(symbols, device=None, num_threads=1):
-    """MACE potential energy calculator using a pretrained model."""
+def mace_anicc_potential(symbols: Sequence[str], *,
+                         device: str | None = None, num_threads: int = 1) -> ASEPotential:
+    """Make a calculator with the pre-trained MACE-ANICC model.
+
+    Args:
+        symbols: ``(N,)`` atomic symbols.
+        device: Device to run the model on. If ``None``, use GPU if available, otherwise CPU.
+        num_threads: Number of threads to use for CPU inference.
+
+    Returns:
+        Calculator wrapping the MACE-ANICC model.
+
+    Note:
+        Requires the ``torch``, ``mace`` and ``ase`` packages.
+        On the CPU, ``torch.jit.load`` is patched to load the model onto the CPU.
+    """
     import torch
     from mace.calculators import mace_anicc
 

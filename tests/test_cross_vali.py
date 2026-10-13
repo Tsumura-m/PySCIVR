@@ -1,14 +1,14 @@
 """
-Solve the same system (pure rotation of hydrogen and methane) using two independent methods (implicit integration in internal coordinates / SHAKE/RATTLE in Cartesian coordinates) and verify that the orbits and monodromy matrices match.
+Solve the same system (pure rotation of hydrogen and methane) using two independent methods (implicit integration in internal coordinates / SHAKE/RATTLE in Cartesian coordinates) and verify that the trajectories and monodromy matrices match.
 """
 
 import jax.numpy as jnp
 import numpy as np
 from _utils import get_S
 
-from pyscivr.coordinates import InternalCoordinates, QuaternionCoordinates, make_converters
-from pyscivr.integrators import ImplicitVerlet, ShakeRattle, quaternion_metric
-from pyscivr.potentials import NullPotential
+from pyscivr.coordinates import InternalCoordinates, QuaternionCoordinates, make_converters, quaternion_metric
+from pyscivr.integrators import ImplicitVerlet, ShakeRattle
+from pyscivr.potentials import ZeroPotential
 from pyscivr.units import CmInv, FemtoSec
 from pyscivr.utils import get_inertia
 from pyscivr.variations import (
@@ -74,7 +74,7 @@ def test_h2_rigid_rotor_implicit_vs_shake_rattle(h2_geom):
     symp_err_int = np.max(np.abs(mono_int.transpose(0, 2, 1) @ J @ mono_int - J), axis=(1, 2))
 
     # (B) SHAKE/RATTLE (Cartesian)
-    pot = NullPotential()
+    pot = ZeroPotential()
     _, jacobi_rev_func, _, monodromy_func = make_jacobi_func(coord_all, active_idx)
     traj_cart = ShakeRattle(pot, posi_cart, mome_cart, mass, DT, coord_const).run(N_STEP)
     J_rev_init = jacobi_rev_func(traj_cart["posi"][0], traj_cart["mome"][0])
@@ -167,7 +167,7 @@ def test_ch4_spherical_top_quaternion_vs_shake_rattle(ch4):
     coord_all.build()
     active_cart = coord_all.inv_argsort[[3, 4, 5]]  # yaw, pitch, roll
 
-    pot = NullPotential()
+    pot = ZeroPotential()
     _, jacobi_rev_cart, _, monodromy_cart = make_jacobi_func(coord_all, active_cart)
     traj_cart = ShakeRattle(pot, posi_cart, mome_cart, mass, DT, coord_const).run(N_STEP)
     J_rev_init_cart = jacobi_rev_cart(traj_cart["posi"][0], traj_cart["mome"][0])

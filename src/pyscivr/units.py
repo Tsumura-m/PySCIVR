@@ -1,16 +1,39 @@
+"""Physical constants and unit conversion factors in the internal unit system.
+
+The internal unit system is Angstrom (length), eV (energy), atomic mass unit (mass),
+elementary charge (charge), Kelvin (temperature) and mol (amount of substance).
+The time unit is derived as ``Angs * sqrt(amu / eV)`` (about 10.18 fs).
+
+Each name below is the value of the unit or constant in the internal unit system,
+so multiplying converts into the internal units and dividing converts out of them::
+
+    from pyscivr.units import Hartree, FemtoSec
+
+    ener = -1.17 * Hartree  # Hartree -> eV
+    t_fs = t / FemtoSec     # internal time -> fs
+
+Available names:
+
+- Length: ``Metre``, ``nm``, ``cm``, ``Angs``, ``Bohr``.
+- Energy: ``Joule``, ``eV``, ``Hartree``, ``Ry``, ``CmInv``, ``Hz``, ``kcal``.
+- Mass: ``kg``, ``gram``, ``amu``, ``me``.
+- Charge: ``C``, ``e``.
+- Temperature and amount of substance: ``Kelvin``, ``mol``.
+- Time: ``Sec``, ``NanoSec``, ``PicoSec``, ``FemtoSec``.
+- Constants: ``HBar``, ``HPlank``, ``KB``, ``SpeedOfLight``, ``NAvo``, ``Mu0``,
+  ``Eps0``, ``E`` (elementary charge), ``MPro``, ``MNeu``, ``MEle``, ``Debye``.
+
+Each constant is also available in SI units with the suffix ``_SI``
+(e.g. ``HBar_SI``).
+"""
+
 import math
 
 import scipy.constants as sc
 from scipy.constants import physical_constants as pc
 
-# __length__ = 'Bohr'
-# __energy__ = 'Hartree'
-# __mass__ = 'me'
-# __charge__ = 'e'
-# __temperature__ = 'K'
-# __mol__ = 'mol'
-
-my_units = {"length": "Angs", "energy": "eV", "mass": "amu", "charge": "e", "temperature": "Kelvin", "mol": "mol"}
+my_units = {"length": "Angs", "energy": "eV", "mass": "amu", "charge": "e",
+            "temperature": "Kelvin", "mol": "mol"}
 
 __length__ = my_units["length"]
 __energy__ = my_units["energy"]

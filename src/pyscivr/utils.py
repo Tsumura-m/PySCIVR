@@ -1,4 +1,13 @@
+"""Utilities for molecular geometries.
+
+Notation:
+    - ``N``: number of atoms.
+"""
+
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 atomic_weights = {'H': 1.008, 'He': 4.002602, 'Li': 6.94, 'Be': 9.0121831, 'B': 10.81, 'C': 12.011,
                   'N': 14.007, 'O': 15.999, 'F': 18.998403163, 'Ne': 20.1797, 'Na': 22.98976928,
@@ -22,9 +31,22 @@ atomic_weights = {'H': 1.008, 'He': 4.002602, 'Li': 6.94, 'Be': 9.0121831, 'B': 
                   'Rg': 281.0, 'Cn': 285.0, 'Nh': 286.0, 'Fl': 289.0, 'Mc': 288.0, 'Lv': 293.0, 'Ts': 294.0,
                   'Og': 294.0}
 
-def get_geom(xyzstr):
-    """
-    Get chemical symbols, positions, and masses from an XYZ string.
+def get_geom(xyzstr: str) -> tuple[list[str], NDArray[np.float64], NDArray[np.float64]]:
+    """Get the chemical symbols, positions and masses from an XYZ string.
+
+    Only the lines of the form ``symbol x y z`` whose first token is a chemical
+    symbol in ``atomic_weights`` are read. Other lines (e.g. the atom count and
+    the comment line of the XYZ format) are skipped.
+
+    Args:
+        xyzstr: Contents of an XYZ file.
+
+    Returns:
+        ``(symbols, posi, mass)``, where
+
+        - ``symbols``: ``(N,)`` chemical symbols.
+        - ``posi``: ``(N, 3)`` positions, in the same units as ``xyzstr``.
+        - ``mass``: ``(N,)`` atomic masses [amu].
     """
     mass = []
     posi = []
@@ -43,17 +65,37 @@ def get_geom(xyzstr):
     mass = np.array(mass)
     return symbols, posi, mass
 
-def get_mass_center(posi, mass):
-    """
-    Get the center of mass from positions and masses.
+def get_mass_center(posi: ArrayLike, mass: ArrayLike) -> NDArray[np.float64]:
+    """Get the center of mass.
+
+    Args:
+        posi: ``(N, 3)`` positions.
+        mass: ``(N,)`` atomic masses.
+
+    Returns:
+        ``(3,)`` center of mass.
     """
     return np.sum(posi * mass[:, None], axis=0) / np.sum(mass)
 
-def get_inertia(posi, mass):
-    """
-    Get the inertia tensor from positions and masses.
-    """
+def get_inertia(posi: ArrayLike, mass: ArrayLike) -> NDArray[np.float64]:
+    r"""Get the inertia tensor about the origin.
 
+    .. math::
+
+        I = \sum_a m_a (r_a^T r_a - r_a r_a^T)
+
+    Args:
+        posi: ``(N, 3)`` positions.
+        mass: ``(N,)`` atomic masses.
+
+    Returns:
+        ``(3, 3)`` inertia tensor.
+
+    Note:
+        The tensor is computed about the origin. To obtain the inertia tensor
+        about the center of mass, subtract :func:`get_mass_center` from
+        ``posi`` in advance.
+    """
     n_atom = len(mass)
     xx = np.einsum("ax,ax->a", posi, posi)
     xy = np.einsum("ax,ay->axy", posi, posi)
