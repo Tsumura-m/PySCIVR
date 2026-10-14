@@ -18,7 +18,7 @@ Herman–Kluk propagator [1] in curvilinear coordinates, based on Ref. [2].
 
 ## Examples
 
-The tutorials in [`docs/notebooks`](docs/notebooks) reproduce the calculations in Ref. [2]
+The tutorials in [`docs/notebooks`](https://github.com/Tsumura-m/PySCIVR/tree/main/docs/notebooks) reproduce the calculations in Ref. [2]
 and more, which are the practical way to learn how to use the package:
 
 - Pure rotation and rovibration of H2 (linear molecule)
