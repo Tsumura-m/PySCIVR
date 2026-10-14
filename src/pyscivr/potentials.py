@@ -17,7 +17,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import CubicSpline
 
-from .units import Hartree
+from .units import Hartree, Bohr
 
 if TYPE_CHECKING:
     from ase.calculators.calculator import Calculator as ASECalculator
@@ -146,7 +146,8 @@ class ZeroPotential(Calculator):
 
 
 ###################################################################################################
-# hydrogen: CCSD(T)/aug-cc-pV5Z scan + cubic spline
+# hydrogen: CCSD(T)/aug-cc-pV5Z Scan + Cubic spline
+# Computed with Gaussian 16, Revision A.03, M. J. Frisch et al., Gaussian, Inc., Wallingford CT, 2016.
 ###################################################################################################
 
 _H2_ENERGY_HARTREE = np.array([
@@ -166,7 +167,7 @@ _H2_DIST_ANGS = 0.4 + np.arange(len(_H2_ENERGY_HARTREE)) * 0.02
 
 
 class H2SplinePotential(Calculator):
-    r"""H2 potential by cubic spline interpolation of CCSD(T)/aug-cc-pV5Z scan.
+    r"""H2 potential by cubic spline interpolation of CCSD(T)/aug-cc-pV5Z scan computed with Gaussian 16.
 
     The potential :math:`V(r)` depends only on the bond length :math:`r` between the two atoms.
     The forces and Hessians are the exact derivatives of the spline,
@@ -297,3 +298,47 @@ def mace_anicc_potential(symbols: Sequence[str], *,
         torch.set_num_threads(num_threads)
 
     return ASEPotential(symbols, mace_anicc(device=device))
+
+##################################################################################################
+# PySCF DFT calculator
+##################################################################################################
+
+class DFTPotential(Calculator):
+    """Potential by DFT calculations with PySCF.
+
+    Geometries in a batch are evaluated sequentially.
+    The analytical Hessian is not available.
+
+    Args:
+        symbols: ``(N,)`` atomic symbols.
+        basis: Basis set.
+        xc: Exchange-correlation functional.
+        charge: Total charge.
+        spin: Number of unpaired electrons (``2S``). Restricted Kohn-Sham is used
+            if ``spin == 0``, otherwise unrestricted Kohn-Sham.
+        conv_tol: Convergence threshold of the SCF energy [Hartree].
+    """
+
+    def __init__(self, symbols: Sequence[str], *, basis: str = "def2-svp", xc: str = "b3lyp",
+                 charge: int = 0, spin: int = 0, conv_tol: float = 1e-10) -> None:
+        self.symbols = list(symbols)
+        self.basis = basis
+        self.xc = xc
+        self.charge = charge
+        self.spin = spin
+        self.conv_tol = conv_tol
+
+    def _energy_forces_batch(self,
+                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        from pyscf import dft, gto
+
+        ener = np.empty(len(x))
+        force = np.empty_like(x)
+        for i, pos in enumerate(x):
+            mol = gto.M(atom=[(s, tuple(p)) for s, p in zip(self.symbols, pos)], basis=self.basis,
+                        charge=self.charge, spin=self.spin, unit="Angstrom", verbose=0)
+            mf = dft.RKS(mol, xc=self.xc) if self.spin == 0 else dft.UKS(mol, xc=self.xc)
+            mf.conv_tol = self.conv_tol
+            ener[i] = mf.kernel() * Hartree                                # Hartree -> eV
+            force[i] = -mf.nuc_grad_method().kernel() * Hartree / Bohr     # Hartree/Bohr -> eV/Angs
+        return ener, force

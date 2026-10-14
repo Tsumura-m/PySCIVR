@@ -15,10 +15,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mace = [
+ase = [
     "ase",
     "torch",
     "mace-torch",
+]
+pyscf = [
+    "pyscf"
 ]
 cuda = [
     "jax[cuda12]",
@@ -28,6 +31,7 @@ cuda = [
 dev = [
     "ruff",
     "pytest",
+    "ipykernel>=7.4.0",
 ]
 docs = [
     "myst-parser>=5.1.0",
