@@ -1660,9 +1660,11 @@ mace = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "myst-parser" },
     { name = "pytest" },
     { name = "ruff" },
+]
+docs = [
+    { name = "myst-parser" },
     { name = "sphinx" },
     { name = "sphinx-rtd-theme" },
 ]
@@ -1682,9 +1684,11 @@ provides-extras = ["mace", "cuda"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "myst-parser", specifier = ">=5.1.0" },
     { name = "pytest" },
     { name = "ruff" },
+]
+docs = [
+    { name = "myst-parser", specifier = ">=5.1.0" },
     { name = "sphinx", specifier = ">=9.1.0" },
     { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
 ]
