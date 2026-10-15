@@ -24,6 +24,7 @@ extensions = [
     'sphinx.ext.viewcode',  # for adding links to source code
     'sphinx.ext.intersphinx',  # for linking to external documentation
     'myst_parser',  # for parsing Markdown files
+    'nbsphinx', # for notebooks
 ]
 
 intersphinx_mapping = {

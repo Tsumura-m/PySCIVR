@@ -11,4 +11,5 @@ PySCIVR documentation
    :caption: Contents:
 
    README
+   tutorials
    modules

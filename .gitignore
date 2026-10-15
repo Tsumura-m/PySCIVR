@@ -11,7 +11,7 @@ wheels/
 
 
 # Optional
-.npz
+*.npz
 .DS_Store
 dev/
 docs/_build/

@@ -22,15 +22,16 @@ from numpy.typing import ArrayLike
 jax.config.update("jax_enable_x64", True)
 
 # topologies (section II E 2)
-R = "R"          # full line (-inf, inf)
-R_PLUS = "R+"    # half line [0, inf): bond length
-S1 = "S1"        # circle [x, x+2pi) (x is any real number): dihedral angle, yaw & roll angle
-I_MINUS = "I-"   # semi-circle [0, pi]: bond angle, pitch angle
+R = "R"  # full line (-inf, inf)
+R_PLUS = "R+"  # half line [0, inf): bond length
+S1 = "S1"  # circle [x, x+2pi) (x is any real number): dihedral angle, yaw & roll angle
+I_MINUS = "I-"  # semi-circle [0, pi]: bond angle, pitch angle
 
 
 ##################################################################################################
 # Local internal coodinates (coordinate defined by a small number of atoms)
 ##################################################################################################
+
 
 def get_bond(q: ArrayLike) -> jax.Array:
     """Compute the bond length between two atoms.
@@ -43,6 +44,7 @@ def get_bond(q: ArrayLike) -> jax.Array:
     """
     return jnp.linalg.norm(q[1] - q[0])
 
+
 def get_bond_angle(q: ArrayLike) -> jax.Array:
     """Compute the bond angle at ``q[1]``.
 
@@ -53,9 +55,10 @@ def get_bond_angle(q: ArrayLike) -> jax.Array:
         Angle between ``q[0]-q[1]`` and ``q[2]-q[1]`` in [0, pi].
     """
     u, v = q[0] - q[1], q[2] - q[1]
-    x = jnp.dot(u, v)                         # |u||v|cos(theta)
-    y = jnp.linalg.norm(jnp.cross(u, v))      # |u||v|sin(theta)
-    return jnp.arctan2(y, x)                  # theta
+    x = jnp.dot(u, v)  # |u||v|cos(theta)
+    y = jnp.linalg.norm(jnp.cross(u, v))  # |u||v|sin(theta)
+    return jnp.arctan2(y, x)  # theta
+
 
 def get_dihedral_angle(q: ArrayLike) -> jax.Array:
     """Compute the dihedral ``q[0]-q[1]-q[2]-q[3]``.
@@ -70,9 +73,10 @@ def get_dihedral_angle(q: ArrayLike) -> jax.Array:
     n1 = jnp.cross(b1, b2)
     n2 = jnp.cross(b2, b3)
     m1 = jnp.cross(n1, b2 / jnp.linalg.norm(b2))
-    x = jnp.dot(n1, n2)          # |n1||n2|cos(phi)
-    y = jnp.dot(m1, n2)          # |n1||n2|sin(phi)
-    return jnp.arctan2(y, x)     # phi
+    x = jnp.dot(n1, n2)  # |n1||n2|cos(phi)
+    y = jnp.dot(m1, n2)  # |n1||n2|sin(phi)
+    return jnp.arctan2(y, x)  # phi
+
 
 def get_polar_angle(q: ArrayLike) -> jax.Array:
     """Compute the polar angle of the vector ``q[1]-q[0]`` from the z-axis.
@@ -84,7 +88,8 @@ def get_polar_angle(q: ArrayLike) -> jax.Array:
         Polar angle in [0, pi].
     """
     d = q[1] - q[0]
-    return jnp.arctan2(jnp.sqrt(d[0]**2 + d[1]**2), d[2])  # theta in [0, pi]
+    return jnp.arctan2(jnp.sqrt(d[0] ** 2 + d[1] ** 2), d[2])  # theta in [0, pi]
+
 
 def get_azimuthal_angle(q: ArrayLike) -> jax.Array:
     """Compute the azimuthal angle of the vector ``q[1]-q[0]`` from the x-axis in the xy-plane.
@@ -98,6 +103,7 @@ def get_azimuthal_angle(q: ArrayLike) -> jax.Array:
     d = q[1] - q[0]
     return jnp.arctan2(d[1], d[0])  # phi in [-pi, pi)
 
+
 # kind -> (function, number of atoms, topology)
 LOCAL_KINDS = {
     "bond": (get_bond, 2, R_PLUS),
@@ -107,23 +113,24 @@ LOCAL_KINDS = {
     "azimuthal": (get_azimuthal_angle, 2, S1),
 }
 
+
 @jax.custom_jvp
 def _top_eigvec(K: jax.Array) -> jax.Array:
     """Top eigenvector of a symmetric matrix K."""
     return jnp.linalg.eigh(K)[1][:, -1]
 
+
 @_top_eigvec.defjvp
-def _top_eigvec_jvp(
-    primals: tuple[jax.Array],
-    tangents: tuple[jax.Array]) -> tuple[jax.Array, jax.Array]:
+def _top_eigvec_jvp(primals: tuple[jax.Array], tangents: tuple[jax.Array]) -> tuple[jax.Array, jax.Array]:
     """Derivative of the top eigenvector of a symmetric matrix K."""
-    K, = primals
-    dK, = tangents
+    (K,) = primals
+    (dK,) = tangents
     q = _top_eigvec(K)
     lam = q @ K @ q
     r = dK @ q - (q @ dK @ q) * q
     dq = jnp.linalg.solve((lam * jnp.eye(K.shape[0]) - K + jnp.outer(q, q)), r)
     return q, dq
+
 
 def quat_to_rotmat(q: ArrayLike) -> jax.Array:
     """Convert a quaternion to a rotation matrix (Eq. (L6) in the paper).
@@ -135,17 +142,17 @@ def quat_to_rotmat(q: ArrayLike) -> jax.Array:
         ``(3, 3)`` rotation matrix ``C``.
     """
     q0, q1, q2, q3 = q
-    C = jnp.array([
-        [1.0-2.0*(q2**2 + q3**2), 2.0*(q1*q2 - q0*q3), 2.0*(q1*q3 + q0*q2)],
-        [2.0*(q1*q2 + q0*q3), 1.0-2.0*(q1**2 + q3**2), 2.0*(q2*q3 - q0*q1)],
-        [2.0*(q1*q3 - q0*q2), 2.0*(q2*q3 + q0*q1), 1.0-2.0*(q1**2 + q2**2)]
-    ])
+    C = jnp.array(
+        [
+            [1.0 - 2.0 * (q2**2 + q3**2), 2.0 * (q1 * q2 - q0 * q3), 2.0 * (q1 * q3 + q0 * q2)],
+            [2.0 * (q1 * q2 + q0 * q3), 1.0 - 2.0 * (q1**2 + q3**2), 2.0 * (q2 * q3 - q0 * q1)],
+            [2.0 * (q1 * q3 - q0 * q2), 2.0 * (q2 * q3 + q0 * q1), 1.0 - 2.0 * (q1**2 + q2**2)],
+        ]
+    )
     return C
 
-def get_rotation_matrix(
-    posi_c: ArrayLike,
-    posi_ref_c: ArrayLike,
-    mass: ArrayLike) -> jax.Array:
+
+def get_rotation_matrix(posi_c: ArrayLike, posi_ref_c: ArrayLike, mass: ArrayLike) -> jax.Array:
     r"""Compute the rotation matrix minimizing the mass-weighted RMSD by Horn's method.
 
     The rotation matrix between ``posi_c`` and ``posi_ref_c`` is computed
@@ -195,6 +202,7 @@ def get_rotation_matrix(
 
     return C
 
+
 def get_euler_angles(C: ArrayLike) -> jax.Array:
     """Compute the Euler angles (yaw, pitch, roll) in ZYX convention from the rotation matrix (Eq. (L7) in the paper).
 
@@ -208,14 +216,13 @@ def get_euler_angles(C: ArrayLike) -> jax.Array:
         - pitch: rotation around y-axis, shifted to [0, pi].
         - roll: rotation around x-axis in [-pi, pi).
     """
-    yaw = jnp.arctan2(C[1, 0], C[0, 0]) # [-pi, pi)
-    pitch = jnp.arctan2(jnp.sqrt(C[0, 0]**2 + C[1, 0]**2), C[2, 0]) # [0, pi]
-    roll = jnp.arctan2(C[2, 1], C[2, 2]) # [-pi, pi)
+    yaw = jnp.arctan2(C[1, 0], C[0, 0])  # [-pi, pi)
+    pitch = jnp.arctan2(jnp.sqrt(C[0, 0] ** 2 + C[1, 0] ** 2), C[2, 0])  # [0, pi]
+    roll = jnp.arctan2(C[2, 1], C[2, 2])  # [-pi, pi)
     return jnp.array([yaw, pitch, roll])
 
 
-KIND_ORDER = ("translation", "rotation", "euler", "normal",
-              "bond", "angle", "dihedral", "polar", "azimuthal")
+KIND_ORDER = ("translation", "rotation", "euler", "normal", "bond", "angle", "dihedral", "polar", "azimuthal")
 
 
 @dataclass
@@ -233,20 +240,27 @@ class Coordinate:
     #: Topology of the coordinate.
     topology: str
 
+
 def _skew(c: jax.Array) -> jax.Array:
     """Skew-symmetric matrix for cross product.
 
     c(N, 3) -> c(N, 3, 3)
     """
     z = jnp.zeros(c.shape[0])
-    return jnp.stack([jnp.stack([z, -c[:, 2], c[:, 1]], axis=-1),
-                      jnp.stack([c[:, 2], z, -c[:, 0]], axis=-1),
-                      jnp.stack([-c[:, 1], c[:, 0], z], axis=-1)], axis=1)
+    return jnp.stack(
+        [
+            jnp.stack([z, -c[:, 2], c[:, 1]], axis=-1),
+            jnp.stack([c[:, 2], z, -c[:, 0]], axis=-1),
+            jnp.stack([-c[:, 1], c[:, 0], z], axis=-1),
+        ],
+        axis=1,
+    )
 
 
 ##################################################################################################
 # InternalCoordinates class (Cartesian -> Internal coordinates)
 ##################################################################################################
+
 
 class InternalCoordinates:
     """Internal coordinates defined from Cartesian coordinates.
@@ -268,10 +282,7 @@ class InternalCoordinates:
             If ``False``, ``posi_ref`` is used as a fixed reference. (Eckart conditions Eq. (84) in the paper)
     """
 
-    def __init__(self,
-            posi_ref: ArrayLike,
-            mass: ArrayLike,
-            move_reference: bool = False) -> None:
+    def __init__(self, posi_ref: ArrayLike, mass: ArrayLike, move_reference: bool = False) -> None:
         self.posi_ref = np.asarray(posi_ref, dtype=float).reshape(-1, 3)
         self.mass = np.asarray(mass, dtype=float)
         self.mass_inv_flat = 1.0 / np.repeat(self.mass, 3)
@@ -290,11 +301,7 @@ class InternalCoordinates:
             lines.append(f"  {i:3d}: {c.kind:15s} {c.atom_indices} value_ref={c.value_ref:.6f}")
         return "\n".join(lines)
 
-    def _add_local(self,
-            kind: str,
-            atoms: tuple[int, ...],
-            name: str | None = None
-        ) -> None: # local
+    def _add_local(self, kind: str, atoms: tuple[int, ...], name: str | None = None) -> None:  # local
         func, n, topology = LOCAL_KINDS[kind]
         atoms = tuple(int(a) for a in atoms)
         assert len(atoms) == n and len(set(atoms)) == n, f"Invalid atoms for {kind}: {atoms}"
@@ -304,7 +311,7 @@ class InternalCoordinates:
             name = f"{kind}{atoms}"
         self.coords.append(Coordinate(kind, atoms, value_ref, name, topology))
 
-    def add_bond(self, i: int, j: int, name: str | None = None) -> None: # local
+    def add_bond(self, i: int, j: int, name: str | None = None) -> None:  # local
         """Add a bond length between atoms ``i`` and ``j``.
 
         Args:
@@ -315,7 +322,7 @@ class InternalCoordinates:
         """
         self._add_local("bond", (i, j), name)
 
-    def add_angle(self, i: int, j: int, k: int, name: str | None = None) -> None: # local
+    def add_angle(self, i: int, j: int, k: int, name: str | None = None) -> None:  # local
         """Add a bond angle ``i-j-k`` at atom ``j``.
 
         Args:
@@ -327,7 +334,7 @@ class InternalCoordinates:
         """
         self._add_local("angle", (i, j, k), name)
 
-    def add_dihedral(self, i: int, j: int, k: int, l: int, name: str | None = None) -> None: # local
+    def add_dihedral(self, i: int, j: int, k: int, l: int, name: str | None = None) -> None:  # local
         """Add a dihedral angle ``i-j-k-l``.
 
         Args:
@@ -340,7 +347,7 @@ class InternalCoordinates:
         """
         self._add_local("dihedral", (i, j, k, l), name)
 
-    def add_polar(self, i: int, j: int, name: str | None = None) -> None: # local
+    def add_polar(self, i: int, j: int, name: str | None = None) -> None:  # local
         """Add a polar angle of the vector ``i-j`` from the z-axis.
 
         Args:
@@ -351,7 +358,7 @@ class InternalCoordinates:
         """
         self._add_local("polar", (i, j), name)
 
-    def add_azimuthal(self, i: int, j: int, name: str | None = None) -> None: # local
+    def add_azimuthal(self, i: int, j: int, name: str | None = None) -> None:  # local
         """Add an azimuthal angle of the vector ``i-j`` from the x-axis in the xy-plane.
 
         Args:
@@ -362,7 +369,7 @@ class InternalCoordinates:
         """
         self._add_local("azimuthal", (i, j), name)
 
-    def add_translation(self) -> None: # constant
+    def add_translation(self) -> None:  # constant
         r"""Add three (Eckart) translational coordinates (x, y, z) of the center of mass.
 
         .. math::
@@ -377,7 +384,7 @@ class InternalCoordinates:
         for d in "xyz":
             self.coords.append(Coordinate("translation", (), 0.0, f"translation_{d}", R))
 
-    def add_rotation(self) -> None: # constant
+    def add_rotation(self) -> None:  # constant
         r"""Add three (Eckart) rotational coordinates (x, y, z).
 
         .. math::
@@ -395,29 +402,28 @@ class InternalCoordinates:
         for d in "xyz":
             self.coords.append(Coordinate("rotation", (), 0.0, f"rotation_{d}", R))
 
-    def add_eckart(self) -> None: # constant
+    def add_eckart(self) -> None:  # constant
         """Add Eckart translational and rotational coordinates."""
         self.add_translation()
         self.add_rotation()
 
-
-    def add_euler(self) -> None: # global
+    def add_euler(self) -> None:  # global
         """Add three Euler angles (yaw, pitch, roll) of the overall rotation."""
         if self.remove_euler:
             return
         assert not self.remove_rotation, "Cannot add Euler angles when rotation is removed"
         self.remove_euler = True
-        values_ref = get_euler_angles(get_rotation_matrix(self._centered(self.posi_ref),
-                                                       self._centered(self.posi_ref), self.mass))
+        values_ref = get_euler_angles(
+            get_rotation_matrix(self._centered(self.posi_ref), self._centered(self.posi_ref), self.mass)
+        )
         for d, t, topology in zip("yaw pitch roll".split(), values_ref, (S1, I_MINUS, S1)):
             self.coords.append(Coordinate("euler", (), float(t), f"euler_{d}", topology))
 
-    def add_normal_mode(self, mode_vector: ArrayLike, name:str | None = None) -> None: # global
+    def add_normal_mode(self, mode_vector: ArrayLike, name: str | None = None) -> None:  # global
         """Not implemented yet."""
         raise NotImplementedError("Normal mode coordinates are not implemented yet.")
         mode_vector = np.asarray(mode_vector, dtype=float).reshape(-1)
-        assert mode_vector.shape == (3 * self.n_atom,), \
-               f"Invalid mode vector shape: {mode_vector.shape}"
+        assert mode_vector.shape == (3 * self.n_atom,), f"Invalid mode vector shape: {mode_vector.shape}"
         value_ref = 0.0
         if name is None:
             name = f"normal{len(self.normal_vectors)}"
@@ -457,8 +463,7 @@ class InternalCoordinates:
         for c in self.coords:
             assert c.kind in KIND_ORDER, f"Unknown kind: {c.kind}"
 
-        self.argsort = sorted(range(len(self.coords)),
-                              key=lambda i: KIND_ORDER.index(self.coords[i].kind))
+        self.argsort = sorted(range(len(self.coords)), key=lambda i: KIND_ORDER.index(self.coords[i].kind))
         self.coords = [self.coords[i] for i in self.argsort]
         self.inv_argsort = np.empty(len(self.argsort), dtype=int)
         self.inv_argsort[self.argsort] = np.arange(len(self.argsort))
@@ -552,20 +557,20 @@ class InternalCoordinates:
             res = []
             if n_trans:
                 # d/dx_i sum_j m_j (x_j - c) = m_i * I
-                B_trans = mass[None, :, None] * jnp.eye(3)[:, None, :] # (3, N, 3)
+                B_trans = mass[None, :, None] * jnp.eye(3)[:, None, :]  # (3, N, 3)
                 res.append(B_trans.reshape(3, -1))
             if n_rot:
                 # d/dx_i sum_j m_j (c_j x x_j) = m_i (r_i x I) = m_i * skew(c_i)
-                B_rot = (mass[:, None, None] * _skew(mass_centered(ref))).transpose(1, 0, 2) # (3, N, 3)
+                B_rot = (mass[:, None, None] * _skew(mass_centered(ref))).transpose(1, 0, 2)  # (3, N, 3)
                 res.append(B_rot.reshape(3, -1))
             if n_global:
                 res.append(jax.jacrev(evaluate_global_f)(x).reshape(n_global, -1))  # (n_global, 3N)
-            for func, idx, _ in groups: # for each local coordinate group
+            for func, idx, _ in groups:  # for each local coordinate group
                 g = jax.vmap(jax.grad(func))(x[idx])  # (K_i, N_i, 3) (coordinates size, local atoms, xyz)
                 m = idx.shape[0]
-                B = jnp.zeros((m, n_atom, 3)).at[jnp.arange(m)[:, None], idx, :].set(g) # (K_i, N, 3)
+                B = jnp.zeros((m, n_atom, 3)).at[jnp.arange(m)[:, None], idx, :].set(g)  # (K_i, N, 3)
                 res.append(B.reshape(m, -1))
-            return jnp.concatenate(res) # (K, 3N)
+            return jnp.concatenate(res)  # (K, 3N)
 
         def evaluate_hess_kj_contract(x: jax.Array, w: jax.Array, V: jax.Array) -> jax.Array:
             """Contract the second derivatives of the residual function over k and j (Eq. (34)).
@@ -574,7 +579,7 @@ class InternalCoordinates:
             -> (wHV)_(i,a) = sum_j sum_k w_k d^2/dx_i dx_j F_k(x) V_(j,a) : (3N, X)
             """
             grad_wF = jax.grad(lambda x: jnp.sum(w * evaluate_all_f(x)))  # (N, 3)
-            jvp_1d = lambda v: jax.jvp(grad_wF, (x,), (v.reshape(-1, 3),))[1].reshape(-1) # (3N,)
+            jvp_1d = lambda v: jax.jvp(grad_wF, (x,), (v.reshape(-1, 3),))[1].reshape(-1)  # (3N,)
             return jax.vmap(jvp_1d, in_axes=1, out_axes=1)(V)  # (3N, X)
 
         def evaluate_hess_ij_contract(x: jax.Array, w: jax.Array, V: jax.Array) -> jax.Array:
@@ -583,8 +588,8 @@ class InternalCoordinates:
             x: (N, 3), w: (3N,), V: (3N, X)
             -> (wHV)_(k,a) = sum_i sum_j w_i d^2/dx_i dx_j F_k(x) V_(j,a) : (K, X)
             """
-            jvp_w = lambda y: jax.jvp(evaluate_all_f, (y,), (w.reshape(-1, 3),))[1] # (K,)
-            jvp_wv = lambda v: jax.jvp(jvp_w, (x,), (v.reshape(-1, 3),))[1] # (K,)
+            jvp_w = lambda y: jax.jvp(evaluate_all_f, (y,), (w.reshape(-1, 3),))[1]  # (K,)
+            jvp_wv = lambda v: jax.jvp(jvp_w, (x,), (v.reshape(-1, 3),))[1]  # (K,)
             return jax.vmap(jvp_wv, in_axes=1, out_axes=1)(V)  # (K, X)
 
         def _flat(f: Callable[..., jax.Array]) -> Callable[..., jax.Array]:
@@ -639,6 +644,7 @@ class InternalCoordinates:
 # QuaternionCoordinates class (Quaternion -> Euler angles)
 ##################################################################################################
 
+
 class QuaternionCoordinates:
     """Euler angles defined from quaternion coordinates.
 
@@ -670,7 +676,7 @@ class QuaternionCoordinates:
             -> (wHV)_(i,a) = sum_j sum_k w_k d^2/dq_i dq_j F_k(q) V_(j,a) : (4, X)
             """
             grad_wF = jax.grad(lambda q: jnp.sum(w * evaluate_all_f(q)))  # (4,)
-            jvp_1d = lambda v: jax.jvp(grad_wF, (q,), (v.reshape(-1),))[1].reshape(-1) # (4,)
+            jvp_1d = lambda v: jax.jvp(grad_wF, (q,), (v.reshape(-1),))[1].reshape(-1)  # (4,)
             return jax.vmap(jvp_1d, in_axes=1, out_axes=1)(V)  # (4, X)
 
         self.get_value = jax.jit(evaluate_all_f)
@@ -688,13 +694,15 @@ class QuaternionCoordinates:
         print("Build is not required for QuaternionCoordinate, as it is already defined.")
         pass
 
+
 def make_converters(
-        coord_all: InternalCoordinates | QuaternionCoordinates,
-        active_idx: ArrayLike | None = None
-    ) -> tuple[Callable[[jax.Array], jax.Array],
-               Callable[[jax.Array, jax.Array], jax.Array],
-               Callable[[jax.Array, jax.Array], jax.Array],
-               Callable[[jax.Array], jax.Array]]:
+    coord_all: InternalCoordinates | QuaternionCoordinates, active_idx: ArrayLike | None = None
+) -> tuple[
+    Callable[[jax.Array], jax.Array],
+    Callable[[jax.Array, jax.Array], jax.Array],
+    Callable[[jax.Array, jax.Array], jax.Array],
+    Callable[[jax.Array], jax.Array],
+]:
     """Make coordinate converters for the active (physical) coordinates.
 
     Args:
@@ -734,6 +742,7 @@ def make_converters(
     to_redundant_mome = jax.jit(jax.vmap(lambda x, P: get_R_active(x) @ P))
     return to_physical_posi, to_physical_mome, to_redundant_mome, get_R_active
 
+
 def quaternion_metric(inertia: ArrayLike) -> Callable[[jax.Array], jax.Array]:
     """Make the metric function for the quaternion dynamics (Eq. (L5) in the paper).
 
@@ -748,11 +757,13 @@ def quaternion_metric(inertia: ArrayLike) -> Callable[[jax.Array], jax.Array]:
 
     def metric_func(q: jax.Array) -> jax.Array:
         q0, q1, q2, q3 = q
-        S = jnp.array([
-            [-q1, q0, q3, -q2],
-            [-q2, -q3, q0, q1],
-            [-q3, q2, -q1, q0],
-        ])
+        S = jnp.array(
+            [
+                [-q1, q0, q3, -q2],
+                [-q2, -q3, q0, q1],
+                [-q3, q2, -q1, q0],
+            ]
+        )
         return 0.25 * S.T @ (S / inertia[:, None])  # (4, 4)
 
     return metric_func

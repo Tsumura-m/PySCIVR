@@ -32,8 +32,7 @@ import math
 import scipy.constants as sc
 from scipy.constants import physical_constants as pc
 
-my_units = {"length": "Angs", "energy": "eV", "mass": "amu", "charge": "e",
-            "temperature": "Kelvin", "mol": "mol"}
+my_units = {"length": "Angs", "energy": "eV", "mass": "amu", "charge": "e", "temperature": "Kelvin", "mol": "mol"}
 
 __length__ = my_units["length"]
 __energy__ = my_units["energy"]

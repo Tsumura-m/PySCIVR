@@ -32,9 +32,8 @@ jax.config.update("jax_enable_x64", True)
 # SHAKE/RATTLE variation propagator
 ##################################################################################################
 
-def make_vari_propagator(
-        coord_const: InternalCoordinates,
-        dt: float) -> Callable[..., jax.Array]:
+
+def make_vari_propagator(coord_const: InternalCoordinates, dt: float) -> Callable[..., jax.Array]:
     r"""Make a function to propagate the variation along a SHAKE/RATTLE trajectory.
 
     The linearized SHAKE/RATTLE equations (Eqs. (31)-(37) in the paper) are
@@ -50,52 +49,58 @@ def make_vari_propagator(
         returning the ``(T, 6N, 2m)`` propagated variation of the trajectory.
         Use it through :func:`propagate_variation`.
     """
-    const_grad_func = coord_const.get_const_grad            # (3N) -> (K, 3N)
-    const_hess_kj_func = coord_const.get_const_hess_kj_contract   # (3N), (K,), (3N, 2m) -> (3N, 2m)
-    const_hess_ij_func = coord_const.get_const_hess_ij_contract   # (3N), (3N), (3N, 2m) -> (K, 2m)
+    const_grad_func = coord_const.get_const_grad  # (3N) -> (K, 3N)
+    const_hess_kj_func = coord_const.get_const_hess_kj_contract  # (3N), (K,), (3N, 2m) -> (3N, 2m)
+    const_hess_ij_func = coord_const.get_const_hess_ij_contract  # (3N), (3N), (3N, 2m) -> (K, 2m)
     mass_inv_flat = jnp.asarray(coord_const.mass_inv_flat, dtype=float)
 
-    def oblique_proj(v: jax.Array, G_prev: jax.Array, G_new: jax.Array) -> jax.Array: # Eq. (33)
+    def oblique_proj(v: jax.Array, G_prev: jax.Array, G_new: jax.Array) -> jax.Array:  # Eq. (33)
         """Obique projection of v: P_{n+1} v = (I - M^{-1} G_{n}^T (G_{n+1} M^{-1} G_{n}^T)^{-1} G_{n+1}) v."""
-        metric_obl = G_new @ (mass_inv_flat[:, None] * G_prev.T) # G_{n+1} M^{-1} G_{n}^T
+        metric_obl = G_new @ (mass_inv_flat[:, None] * G_prev.T)  # G_{n+1} M^{-1} G_{n}^T
         return v - mass_inv_flat[:, None] * G_prev.T @ jnp.linalg.solve(metric_obl, G_new @ v)
 
-    def ortho_proj(v: jax.Array, G: jax.Array, metric_ortho: jax.Array) -> jax.Array: # Eq. (31)
+    def ortho_proj(v: jax.Array, G: jax.Array, metric_ortho: jax.Array) -> jax.Array:  # Eq. (31)
         """Orthogonal projection of v: P_{n} v = (I - G_{n}^T (G_{n} M^{-1} G_{n}^T)^{-1} G_{n} M^{-1}) v."""
         return v - G.T @ jnp.linalg.solve(metric_ortho, G @ (mass_inv_flat[:, None] * v))
 
-    def step(carry: tuple[jax.Array, ...],
-             inputs: tuple[jax.Array, ...]) -> tuple[tuple[jax.Array, ...], tuple[jax.Array, ...]]:
+    def step(
+        carry: tuple[jax.Array, ...], inputs: tuple[jax.Array, ...]
+    ) -> tuple[tuple[jax.Array, ...], tuple[jax.Array, ...]]:
         posi_vari_prev, mome_vari_prev, G_prev = carry
         posi_prev, posi_new, mome_new, lam_prev, mu_new, hess_prev, hess_new = inputs
         G_new = const_grad_func(posi_new)  # (K, 3N)
 
         # position variation
         # Eq. (35)
-        posi_vari_pred = posi_vari_prev + dt * mass_inv_flat[:, None] * mome_vari_prev \
-                         - 0.5 * dt**2 * mass_inv_flat[:, None] * (hess_prev @ posi_vari_prev)
+        posi_vari_pred = (
+            posi_vari_prev
+            + dt * mass_inv_flat[:, None] * mome_vari_prev
+            - 0.5 * dt**2 * mass_inv_flat[:, None] * (hess_prev @ posi_vari_prev)
+        )
         # Eq. (34)
         hess_lam = const_hess_kj_func(posi_prev, lam_prev, posi_vari_prev)  # H^{\lambda} \delta q_n
         posi_vari_pred += dt * mass_inv_flat[:, None] * hess_lam
         posi_vari_new = oblique_proj(posi_vari_pred, G_prev, G_new)
 
         # momentum variation
-        mome_vari_pred = (posi_vari_new - posi_vari_prev) / (dt * mass_inv_flat[:, None]) \
-                         - 0.5 * dt * (hess_new @ posi_vari_new)
+        mome_vari_pred = (posi_vari_new - posi_vari_prev) / (dt * mass_inv_flat[:, None]) - 0.5 * dt * (
+            hess_new @ posi_vari_new
+        )
         # Eq. (37)
         mome_vari_pred += const_hess_kj_func(posi_new, mu_new, posi_vari_new)  # H^{\mu} \delta q_{n+1}
         # Eq. (36)
         metric_ortho = G_new @ (mass_inv_flat[:, None] * G_new.T)  # G_{n+1} M^{-1} G_{n+1}^T
         mome_vari_tangent = ortho_proj(mome_vari_pred, G_new, metric_ortho)
-        hess_ij = const_hess_ij_func(posi_new, mass_inv_flat * mome_new, posi_vari_new) # H_{ijk} (M^{-1} p_{n+1})_k
+        hess_ij = const_hess_ij_func(posi_new, mass_inv_flat * mome_new, posi_vari_new)  # H_{ijk} (M^{-1} p_{n+1})_k
         mome_vari_normal = -G_new.T @ jnp.linalg.solve(metric_ortho, hess_ij)
         mome_vari_new = mome_vari_tangent + mome_vari_normal
 
         return (posi_vari_new, mome_vari_new, G_new), (posi_vari_new, mome_vari_new)
 
     @jax.jit
-    def run(posi: jax.Array, mome: jax.Array, lam: jax.Array,
-            mu: jax.Array, hess: jax.Array, vari_init: jax.Array) -> jax.Array:
+    def run(
+        posi: jax.Array, mome: jax.Array, lam: jax.Array, mu: jax.Array, hess: jax.Array, vari_init: jax.Array
+    ) -> jax.Array:
         n_atom3 = posi.shape[1]
         posi_vari_init = vari_init[:n_atom3]
         mome_vari_init = vari_init[n_atom3:]
@@ -108,14 +113,16 @@ def make_vari_propagator(
 
     return run
 
+
 def propagate_variation(
-        vari_propagator: Callable[..., jax.Array],
-        posi: ArrayLike,
-        mome: ArrayLike,
-        lam: ArrayLike,
-        mu: ArrayLike,
-        hess: ArrayLike,
-        vari_init: ArrayLike) -> NDArray[np.float64]:
+    vari_propagator: Callable[..., jax.Array],
+    posi: ArrayLike,
+    mome: ArrayLike,
+    lam: ArrayLike,
+    mu: ArrayLike,
+    hess: ArrayLike,
+    vari_init: ArrayLike,
+) -> NDArray[np.float64]:
     r"""Propagate the variation along a SHAKE/RATTLE trajectory by the linearized equations of motion.
 
     Args:
@@ -141,9 +148,14 @@ def propagate_variation(
         since :math:`J_{\text{rev}}(0) J(0) J_{\text{rev}}(0) = J_{\text{rev}}(0)` (Eq. (47)).
     """
     n_step = len(posi)
-    vari = vari_propagator(jnp.asarray(np.asarray(posi, dtype=np.float64)).reshape(n_step, -1),
-                           jnp.asarray(np.asarray(mome, dtype=np.float64)).reshape(n_step, -1),
-                           jnp.asarray(lam), jnp.asarray(mu), jnp.asarray(hess), jnp.asarray(vari_init))
+    vari = vari_propagator(
+        jnp.asarray(np.asarray(posi, dtype=np.float64)).reshape(n_step, -1),
+        jnp.asarray(np.asarray(mome, dtype=np.float64)).reshape(n_step, -1),
+        jnp.asarray(lam),
+        jnp.asarray(mu),
+        jnp.asarray(hess),
+        jnp.asarray(vari_init),
+    )
     return np.asarray(vari)
 
 
@@ -151,12 +163,14 @@ def propagate_variation(
 # Implicit Verlet variation propagator
 ##################################################################################################
 
+
 def make_vari_propagator_implicit(
-        metric_func: Callable[[jax.Array], jax.Array],
-        dt: float,
-        *,
-        potential_func: Callable[[jax.Array], jax.Array] | None = None,
-        normalize: bool = False) -> Callable[..., jax.Array]:
+    metric_func: Callable[[jax.Array], jax.Array],
+    dt: float,
+    *,
+    potential_func: Callable[[jax.Array], jax.Array] | None = None,
+    normalize: bool = False,
+) -> Callable[..., jax.Array]:
     r"""Make a function to propagate the variation along an implicit Verlet trajectory.
 
     For :math:`H(Q, P) = \frac{1}{2} P^T G(Q) P + V(Q)`, with
@@ -203,8 +217,9 @@ def make_vari_propagator_implicit(
     get_velo_grad = jax.jacrev(lambda q, p: metric_func(q) @ p, argnums=0)  # X = d(G(Q) P) / dQ (m, m)
     get_hess = jax.hessian(hamiltonian, argnums=0)  # Y = d^2 H(Q) / dQ^2 (m, m)
 
-    def step(carry: tuple[jax.Array, ...],
-            inputs: tuple[jax.Array, ...]) -> tuple[tuple[jax.Array, ...], tuple[jax.Array, ...]]:
+    def step(
+        carry: tuple[jax.Array, ...], inputs: tuple[jax.Array, ...]
+    ) -> tuple[tuple[jax.Array, ...], tuple[jax.Array, ...]]:
         posi_vari_prev, mome_vari_prev, metric_prev = carry
         posi_prev, posi_new, mome_new, mome_half = inputs
         eye = jnp.eye(len(posi_prev))
@@ -216,12 +231,15 @@ def make_vari_propagator_implicit(
         metric_new = metric_func(posi_new)
 
         # momentum variation (n -> n+1/2)
-        mome_vari_half = jnp.linalg.solve(eye + 0.5 * dt * X_prev.T,
-                                          mome_vari_prev - 0.5 * dt * Y_prev @ posi_vari_prev)
+        mome_vari_half = jnp.linalg.solve(
+            eye + 0.5 * dt * X_prev.T, mome_vari_prev - 0.5 * dt * Y_prev @ posi_vari_prev
+        )
 
         # position variation (n -> n+1)
-        posi_vari_new = jnp.linalg.solve(eye - 0.5 * dt * X_new, (eye + 0.5 * dt * X_prev) @ posi_vari_prev
-                                         + 0.5 * dt * (metric_prev + metric_new) @ mome_vari_half)
+        posi_vari_new = jnp.linalg.solve(
+            eye - 0.5 * dt * X_new,
+            (eye + 0.5 * dt * X_prev) @ posi_vari_prev + 0.5 * dt * (metric_prev + metric_new) @ mome_vari_half,
+        )
 
         # momentum variation (n+1/2 -> n+1)
         mome_vari_new = (eye - 0.5 * dt * X_new.T) @ mome_vari_half - 0.5 * dt * Y_new @ posi_vari_new
@@ -241,16 +259,18 @@ def make_vari_propagator_implicit(
         _, (posi_vari, mome_vari) = jax.lax.scan(step, (posi_vari_init, mome_vari_init, metric_func(posi[0])), inputs)
         posi_vari = jnp.concatenate([posi_vari_init[None], posi_vari])
         mome_vari = jnp.concatenate([mome_vari_init[None], mome_vari])
-        return jnp.concatenate([posi_vari, mome_vari], axis=1) # (T, 2m, 2m)
+        return jnp.concatenate([posi_vari, mome_vari], axis=1)  # (T, 2m, 2m)
 
     return run
 
+
 def propagate_variation_implicit(
-        vari_propagator: Callable[..., jax.Array],
-        posi: ArrayLike,
-        mome: ArrayLike,
-        mome_half: ArrayLike,
-        vari_init: ArrayLike) -> NDArray[np.float64]:
+    vari_propagator: Callable[..., jax.Array],
+    posi: ArrayLike,
+    mome: ArrayLike,
+    mome_half: ArrayLike,
+    vari_init: ArrayLike,
+) -> NDArray[np.float64]:
     """Propagate the variation along an implicit Verlet trajectory by the linearized equations of motion.
 
     Args:
@@ -264,18 +284,23 @@ def propagate_variation_implicit(
         ``(T, 2m, 2m)`` propagated variation of the trajectory (monodromy matrix).
     """
     n_step = len(posi)
-    vari = vari_propagator(jnp.asarray(np.asarray(posi, dtype=np.float64)).reshape(n_step, -1),
-                           jnp.asarray(np.asarray(mome, dtype=np.float64)).reshape(n_step, -1),
-                           jnp.asarray(np.asarray(mome_half, dtype=np.float64)).reshape(n_step, -1),
-                           jnp.asarray(vari_init))
+    vari = vari_propagator(
+        jnp.asarray(np.asarray(posi, dtype=np.float64)).reshape(n_step, -1),
+        jnp.asarray(np.asarray(mome, dtype=np.float64)).reshape(n_step, -1),
+        jnp.asarray(np.asarray(mome_half, dtype=np.float64)).reshape(n_step, -1),
+        jnp.asarray(vari_init),
+    )
     return np.asarray(vari)
 
+
 def make_jacobi_func(
-        coord_all: InternalCoordinates,
-        active_idx: ArrayLike
-    ) -> tuple[Callable[..., jax.Array], Callable[..., jax.Array],
-               Callable[..., tuple[jax.Array, jax.Array]],
-               Callable[..., tuple[jax.Array, ...]]]:
+    coord_all: InternalCoordinates, active_idx: ArrayLike
+) -> tuple[
+    Callable[..., jax.Array],
+    Callable[..., jax.Array],
+    Callable[..., tuple[jax.Array, jax.Array]],
+    Callable[..., tuple[jax.Array, ...]],
+]:
     r"""Make Jacobian functions between the redundant and physical spaces (Eq. (42) in the paper).
 
     Args:
@@ -303,16 +328,16 @@ def make_jacobi_func(
     """
     active_idx = np.asarray(active_idx, dtype=int)
     n_active = len(active_idx)
-    skew = jnp.block([[jnp.zeros((n_active, n_active)), jnp.eye(n_active)],
-                      [-jnp.eye(n_active), jnp.zeros((n_active, n_active))]])
+    skew = jnp.block(
+        [[jnp.zeros((n_active, n_active)), jnp.eye(n_active)], [-jnp.eye(n_active), jnp.zeros((n_active, n_active))]]
+    )
     get_const_grad = coord_all.get_const_grad
     get_value = coord_all.get_value
     get_hess_kj = coord_all.get_const_hess_kj_contract
     unit_active = jnp.eye(len(coord_all.coords))[:, active_idx]  # (3N, m)
     _, _, _, _get_R_active = make_converters(coord_all, active_idx)  # R_A
 
-    def _get_jacobi_and_internal(posi: jax.Array,
-                                 mome: jax.Array) -> tuple[jax.Array, ...]:
+    def _get_jacobi_and_internal(posi: jax.Array, mome: jax.Array) -> tuple[jax.Array, ...]:
         B = get_const_grad(posi)
         A_active = jnp.linalg.solve(B, unit_active)  # (3N, m)
         mome_all = jnp.linalg.solve(B.T, mome)  # (3N,)  (P = A^T p)
@@ -333,8 +358,9 @@ def make_jacobi_func(
         A_active = jnp.linalg.solve(get_const_grad(posi), unit_active)  # (3N, m)
         R_active = _get_R_active(posi)  # (3N, m)
         mome_internal = A_active.T @ mome  # (m,)
-        RP_grad = jax.vmap(lambda a: jax.jvp(lambda x: _get_R_active(x) @ mome_internal, (posi,), (a,))[1],
-                           in_axes=1, out_axes=1)(A_active)  # (3N, m)
+        RP_grad = jax.vmap(
+            lambda a: jax.jvp(lambda x: _get_R_active(x) @ mome_internal, (posi,), (a,))[1], in_axes=1, out_axes=1
+        )(A_active)  # (3N, m)
         upper = jnp.concatenate([A_active, jnp.zeros_like(A_active)], axis=1)  # (3N, 2m)
         lower = jnp.concatenate([RP_grad, R_active], axis=1)  # (3N, 2m)
 
@@ -346,8 +372,7 @@ def make_jacobi_func(
         return posi_internal, mome_internal  # (m,), (m,)
 
     @jax.jit
-    def get_monodromy(posi_flat: jax.Array, mome_flat: jax.Array,
-                      vari: jax.Array) -> tuple[jax.Array, ...]:
+    def get_monodromy(posi_flat: jax.Array, mome_flat: jax.Array, vari: jax.Array) -> tuple[jax.Array, ...]:
         jacobi, posi_internal, mome_internal = jax.vmap(_get_jacobi_and_internal)(posi_flat, mome_flat)
         mono_internal = jacobi @ vari
         symplectic_err = jnp.max(jnp.abs(mono_internal.transpose(0, 2, 1) @ skew @ mono_internal - skew), axis=(1, 2))
@@ -355,11 +380,10 @@ def make_jacobi_func(
 
     return get_jacobi, get_jacobi_rev, get_internal, get_monodromy
 
+
 def to_internal(
-        monodromy_func: Callable[..., tuple[jax.Array, ...]],
-        posi: ArrayLike,
-        mome: ArrayLike,
-        vari: ArrayLike) -> tuple[NDArray[np.float64], ...]:
+    monodromy_func: Callable[..., tuple[jax.Array, ...]], posi: ArrayLike, mome: ArrayLike, vari: ArrayLike
+) -> tuple[NDArray[np.float64], ...]:
     r"""Transform the position, momentum, and variations from the redundant space to the physical space.
 
     The monodromy matrix in the physical space is obtained as
@@ -385,8 +409,8 @@ def to_internal(
     n_step = len(posi)
     posi_flat = jnp.asarray(np.asarray(posi, dtype=float).reshape(n_step, -1))
     mome_flat = jnp.asarray(np.asarray(mome, dtype=float).reshape(n_step, -1))
-    posi_internal, mome_internal, mono_internal, symplectic_err = \
-        monodromy_func(posi_flat, mome_flat, jnp.asarray(vari))
+    posi_internal, mome_internal, mono_internal, symplectic_err = monodromy_func(
+        posi_flat, mome_flat, jnp.asarray(vari)
+    )
 
-    return np.asarray(posi_internal), np.asarray(mome_internal), \
-        np.asarray(mono_internal), np.asarray(symplectic_err)
+    return np.asarray(posi_internal), np.asarray(mome_internal), np.asarray(mono_internal), np.asarray(symplectic_err)

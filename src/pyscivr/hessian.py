@@ -23,23 +23,22 @@ if TYPE_CHECKING:
 
 
 def eval_hess_active(
-        calculator: Calculator,
-        coord_all: InternalCoordinates,
-        active_idx: ArrayLike,
-        posi: ArrayLike,
-        steps: ArrayLike,
-        *,
-        eps: float = 1e-4,
-        chunk_size: int | None = 100,
-        rcond: float = 1e-10
-        )-> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    calculator: Calculator,
+    coord_all: InternalCoordinates,
+    active_idx: ArrayLike,
+    posi: ArrayLike,
+    steps: ArrayLike,
+    *,
+    eps: float = 1e-4,
+    chunk_size: int | None = 100,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     r"""Evaluate directional derivative of the gradient at selected steps of a trajectory.
 
     Computes :math:`K A_A \equiv \nabla^2 V A_A` (Eq. (52) in the paper), where
 
     .. math::
 
-        A_A = \frac{dq}{dQ_A}, \quad B_A = \frac{dQ_A}{dq}
+        A_A = \frac{\partial q}{\partial Q_A}, \quad B_A = \frac{\partial Q_A}{\partial q}
 
 
     Args:
@@ -55,7 +54,6 @@ def eval_hess_active(
         eps: Displacement [Angs].
         chunk_size: Number of geometries passed to the calculator at once
             If ``None``, all geometries are passed at once.
-        rcond: Relative cutoff for the pseudo-inverse.
 
     Returns:
         ``(KA, AA, BA)``, where
@@ -79,40 +77,37 @@ def eval_hess_active(
     posi = np.asarray(posi, dtype=float)
     n_atom = posi.shape[1]
     x = np.asarray(posi[steps], dtype=float).reshape(len(steps), -1)  # (S, 3N)
-    const_grad_func_batch = coord_all.get_const_grad_batch # (B, 3N) -> (B, 3N, 3N)
+    const_grad_func_batch = coord_all.get_const_grad_batch  # (B, 3N) -> (B, 3N, 3N)
 
+    B = np.asarray(const_grad_func_batch(x))  # (S, 3N, 3N)
+    assert B.shape[1] == B.shape[2] == n_atom * 3, f"B must have 3N = {n_atom * 3} rows, but has {B.shape[1]} rows."
 
-    B = np.asarray(const_grad_func_batch(x)) # (S, 3N, 3N)
-    assert B.shape[1] == B.shape[2] == n_atom * 3, \
-        f"B must have 3N = {n_atom * 3} rows, but has {B.shape[1]} rows."
-
-    A = np.linalg.pinv(B, rcond=rcond)  # (S, 3N, 3N)
+    A = np.linalg.inv(B)  # (S, 3N, 3N)
     idx_A = np.asarray(active_idx, dtype=int)
     AA = A[:, :, idx_A]  # (S, 3N, m)
     BA = B[:, idx_A, :]  # (S, m, 3N)
 
     Q, R = np.linalg.qr(AA)  # (S, 3N, m), (S, m, m)
     disp = eps * Q.transpose(0, 2, 1)  # (S, m, 3N)
-    x_disp = np.stack([x[:, None, :] + disp, x[:, None, :] - disp]) # (2, S, m, 3N)
+    x_disp = np.stack([x[:, None, :] + disp, x[:, None, :] - disp])  # (2, S, m, 3N)
 
     geoms = x_disp.reshape(-1, n_atom, 3)  # (2*S*m, N, 3)
     if chunk_size is None:
         chunk_size = len(geoms)
 
-    force = np.concatenate([calculator.energy_forces(geoms[i:i + chunk_size])[1]
-                            for i in range(0, len(geoms), chunk_size)])  # (2*S*m, N, 3)
+    force = np.concatenate(
+        [calculator.energy_forces(geoms[i : i + chunk_size])[1] for i in range(0, len(geoms), chunk_size)]
+    )  # (2*S*m, N, 3)
     grad = -force.reshape(x_disp.shape)  # (2, S, m, 3N)
 
     KQ = ((grad[0] - grad[1]) / (2 * eps)).transpose(0, 2, 1)  # (S, 3N, m)
     KA = KQ @ R
     return KA, AA, BA
 
+
 def projected_hessian(
-        KA: NDArray[np.float64],
-        AA: NDArray[np.float64],
-        BA: NDArray[np.float64],
-        *,
-        symmetrize: bool = True) -> NDArray[np.float64]:
+    KA: NDArray[np.float64], AA: NDArray[np.float64], BA: NDArray[np.float64], *, symmetrize: bool = True
+) -> NDArray[np.float64]:
     r"""Compute the Hessian projected onto the active coordinates.
 
     Eq. (50) in the paper:
@@ -137,10 +132,8 @@ def projected_hessian(
 
     return K
 
-def interpolate_hessian(
-        steps: ArrayLike,
-        hess: NDArray[np.float64],
-        n_step: int) -> NDArray[np.float64]:
+
+def interpolate_hessian(steps: ArrayLike, hess: NDArray[np.float64], n_step: int) -> NDArray[np.float64]:
     """Interpolate the Hessian along the trajectory using cubic splines.
 
     Args:

@@ -28,6 +28,7 @@ TRAJ_KEYS = ["posi", "mome", "force", "potential_energy", "total_energy"]
 # trajectory save/load
 ##################################################################################################
 
+
 def save_trajectory(fpath: str, traj: dict[str, Any], **meta: Any) -> None:
     """Save a trajectory.
 
@@ -46,15 +47,17 @@ def save_trajectory(fpath: str, traj: dict[str, Any], **meta: Any) -> None:
     data["mass"] = np.asarray(traj["mass"])
     np.savez(fpath, **data, **meta)
 
+
 def restore_multipliers(
-        coord_const: InternalCoordinates,
-        posi: ArrayLike,
-        mome: ArrayLike,
-        force: ArrayLike,
-        mass: ArrayLike,
-        dt: float,
-        *,
-        atol: float = 1e-10) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    coord_const: InternalCoordinates,
+    posi: ArrayLike,
+    mome: ArrayLike,
+    force: ArrayLike,
+    mass: ArrayLike,
+    dt: float,
+    *,
+    atol: float = 1e-10,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     r"""Restore the Lagrange multipliers of SHAKE/RATTLE from a trajectory.
 
     The multipliers are obtained by solving (Eqs. (25)-(27) in the paper)
@@ -93,7 +96,7 @@ def restore_multipliers(
     mass_inv = 1.0 / np.repeat(np.asarray(mass), 3)
     posi = np.asarray(posi, dtype=float).reshape(n_step, -1)  # (T, 3N)
     mome = np.asarray(mome, dtype=float).reshape(n_step, -1)  # (T, 3N)
-    force = np.asarray(force, dtype=float).reshape(n_step, -1) # (T, 3N)
+    force = np.asarray(force, dtype=float).reshape(n_step, -1)  # (T, 3N)
 
     G = np.asarray(coord_const.get_const_grad_batch(posi))  # (T, K, 3N)
     inv_metric = G @ (mass_inv[:, None] * G.transpose(0, 2, 1))  # (T, K, K)
@@ -102,11 +105,11 @@ def restore_multipliers(
 
     posi_pred = posi[:-1] + dt * mass_inv * mome[:-1] + 0.5 * dt**2 * mass_inv * force[:-1]
     delta_posi = posi[1:] - posi_pred
-    lam = np.linalg.solve(inv_metric[:-1], np.einsum("tki,ti->tk", G[:-1], delta_posi)[...,None])[...,0] / dt
+    lam = np.linalg.solve(inv_metric[:-1], np.einsum("tki,ti->tk", G[:-1], delta_posi)[..., None])[..., 0] / dt
 
     mome_pred = mome[:-1] + 0.5 * dt * (force[:-1] + force[1:]) + np.einsum("tki,tk->ti", G[:-1], lam)
     delta_mome = mome[1:] - mome_pred
-    mu = np.linalg.solve(inv_metric[1:], np.einsum("tki,ti->tk", G[1:], mass_inv * delta_mome)[...,None])[...,0]
+    mu = np.linalg.solve(inv_metric[1:], np.einsum("tki,ti->tk", G[1:], mass_inv * delta_mome)[..., None])[..., 0]
 
     lam = np.concatenate([lam, np.zeros((1, n_const))], axis=0)
     mu = np.concatenate([np.zeros((1, n_const)), mu], axis=0)
@@ -114,11 +117,14 @@ def restore_multipliers(
     # evaluate residuals (q_{n+1} - q~_{n+1} - dt M^{-1} G_{n}^T lam_{n}, p_{n+1} - p~_{n+1} - G_{n+1}^T mu_{n+1})
     res_posi = delta_posi - dt * mass_inv * np.einsum("tki,tk->ti", G[:-1], lam[:-1])
     res_mome = delta_mome - np.einsum("tki,tk->ti", G[1:], mu[1:])
-    assert np.allclose(res_posi, 0.0, atol=atol), \
+    assert np.allclose(res_posi, 0.0, atol=atol), (
         f"Position residuals are not close to zero. max residual {np.max(np.abs(res_posi))}"
-    assert np.allclose(res_mome, 0.0, atol=atol), \
+    )
+    assert np.allclose(res_mome, 0.0, atol=atol), (
         f"Momentum residuals are not close to zero. max residual {np.max(np.abs(res_mome))}"
+    )
     return lam, mu
+
 
 def load_trajectory(fpath: str, coord_const: InternalCoordinates | None = None) -> dict[str, Any]:
     """Load a trajectory saved by :func:`save_trajectory`.
@@ -139,24 +145,26 @@ def load_trajectory(fpath: str, coord_const: InternalCoordinates | None = None) 
     traj["dt"] = float(traj["dt"])
 
     if coord_const is not None:
-        lam, mu = restore_multipliers(coord_const, traj["posi"], traj["mome"],
-                                      traj["force"], traj["mass"], traj["dt"])
+        lam, mu = restore_multipliers(coord_const, traj["posi"], traj["mome"], traj["force"], traj["mass"], traj["dt"])
         traj["lam"], traj["mu"] = lam, mu
 
     return traj
+
 
 ##################################################################################################
 # Hessian
 ##################################################################################################
 
+
 def save_hessian(
-        fpath: str,
-        steps: ArrayLike,
-        hess: ArrayLike,
-        posi: ArrayLike,
-        coord_all: InternalCoordinates,
-        active_idx: ArrayLike,
-        **meta: Any) -> None:
+    fpath: str,
+    steps: ArrayLike,
+    hess: ArrayLike,
+    posi: ArrayLike,
+    coord_all: InternalCoordinates,
+    active_idx: ArrayLike,
+    **meta: Any,
+) -> None:
     r"""Save the Hessians or projected Hessians in a compressed form.
 
     To save the storage, the ``(S, 3N, 3N)`` full Hessians :math:`K` are saved as
@@ -181,7 +189,7 @@ def save_hessian(
     data = dict(steps=np.asarray(steps))
     active_idx = np.asarray(active_idx, dtype=int)
     posi = np.asarray(posi, dtype=float).reshape(len(posi), -1)
-    B = np.asarray(coord_all.get_const_grad_batch(posi[steps]))   # (S, 3N, 3N)
+    B = np.asarray(coord_all.get_const_grad_batch(posi[steps]))  # (S, 3N, 3N)
     unit_active = np.eye(B.shape[1])[:, active_idx]  # (3N, m)
     A_active = np.linalg.solve(B, unit_active)  # (S, 3N, m)
 
@@ -192,12 +200,9 @@ def save_hessian(
     np.savez(fpath, **data, **meta)
 
 
-
-def load_hessian(fpath: str,
-                 coord_all: InternalCoordinates,
-                 posi: ArrayLike,
-                 n_step=None,
-                 symmetrize=True) -> tuple[NDArray[np.int64], NDArray[np.float64]]:
+def load_hessian(
+    fpath: str, coord_all: InternalCoordinates, posi: ArrayLike, n_step=None, symmetrize=True
+) -> tuple[NDArray[np.int64], NDArray[np.float64]]:
     r"""Restore the projected Hessians saved by :func:`save_hessian`.
 
     The projected Hessians are restored as :math:`\mathfrak{P}^T K \mathfrak{P}`, where :math:`\mathfrak{P} = A_A B_A`.
@@ -225,7 +230,7 @@ def load_hessian(fpath: str,
         active_idx = f["active_idx"]
 
     posi = np.asarray(posi, dtype=float).reshape(len(posi), -1)
-    B = np.asarray(coord_all.get_const_grad_batch(posi[steps]))   # (S, 3N, 3N)
+    B = np.asarray(coord_all.get_const_grad_batch(posi[steps]))  # (S, 3N, 3N)
 
     unit_active = np.eye(B.shape[1])[:, active_idx]  # (3N, m)
     A_active = np.linalg.solve(B, unit_active)  # (S, 3N, m)

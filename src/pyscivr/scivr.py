@@ -50,6 +50,7 @@ def _simpson_weights(n_points: int, dt: float) -> NDArray[np.float64]:
         weights[n_simp] += 0.5 * dt
     return weights
 
+
 def get_action(lagrangian: ArrayLike, dt: float) -> NDArray[np.float64]:
     r"""Compute the running action integral (Eq. (3) in the paper).
 
@@ -79,8 +80,8 @@ def get_action(lagrangian: ArrayLike, dt: float) -> NDArray[np.float64]:
     action[1::2] = action[0::2][:n_odd] + (lag[0::2][:n_odd] + lag[1::2]) * dt * 0.5
     return action
 
-def get_lagrangian(ener_tot: ArrayLike, ener_pot: ArrayLike, *,
-                   ener_ref: float = 0.0) -> NDArray[np.float64]:
+
+def get_lagrangian(ener_tot: ArrayLike, ener_pot: ArrayLike, *, ener_ref: float = 0.0) -> NDArray[np.float64]:
     r"""Compute the Lagrangian from the total and potential energies.
 
     .. math::
@@ -100,8 +101,10 @@ def get_lagrangian(ener_tot: ArrayLike, ener_pot: ArrayLike, *,
     ener_pot = np.asarray(ener_pot, dtype=float)
     return ener_tot - 2 * ener_pot + ener_ref
 
-def get_prefactor(mono: ArrayLike, gamma: ArrayLike,
-                  valid: ArrayLike | None = None) -> tuple[NDArray[np.float64], NDArray[np.complex128]]:
+
+def get_prefactor(
+    mono: ArrayLike, gamma: ArrayLike, valid: ArrayLike | None = None
+) -> tuple[NDArray[np.float64], NDArray[np.complex128]]:
     r"""Compute the Herman-Kluk pre-factor with branch tracking of the complex square root (Eq. (6) in the paper).
 
     .. math::
@@ -132,25 +135,31 @@ def get_prefactor(mono: ArrayLike, gamma: ArrayLike,
     qq, qp = mono[:, :m, :m], mono[:, :m, m:]
     pq, pp = mono[:, m:, :m], mono[:, m:, m:]
     g, g_inv = gamma, 1.0 / gamma
-    mat = qq + pp * g_inv[None, :, None] * g[None, None, :] - 1j * HBar * qp * g[None, None, :] \
-          + 1j / HBar * pq * g_inv[None, :, None]
-    det = np.linalg.det(mat) * 0.5 ** m
+    mat = (
+        qq
+        + pp * g_inv[None, :, None] * g[None, None, :]
+        - 1j * HBar * qp * g[None, None, :]
+        + 1j / HBar * pq * g_inv[None, :, None]
+    )
+    det = np.linalg.det(mat) * 0.5**m
 
     prefactor = np.full(n_step, np.nan, dtype=complex)
     d = det[valid]
     phase = 0.5 * np.unwrap(np.angle(d))
-    prefactor [valid] = np.sqrt(np.abs(d)) * np.exp(1j * phase)
+    prefactor[valid] = np.sqrt(np.abs(d)) * np.exp(1j * phase)
     return prefactor
+
 
 @deprecated("get_ta_spectrum_naive is deprecated. Use get_ta_spectrum_fft instead.")
 def get_ta_spectrum_naive(
-        prefactor: ArrayLike,
-        overlap: ArrayLike,
-        action: ArrayLike,
-        dt: float,
-        ener_grid: ArrayLike,
-        valid: ArrayLike | None = None,
-        chunk_size: int = 1000) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    prefactor: ArrayLike,
+    overlap: ArrayLike,
+    action: ArrayLike,
+    dt: float,
+    ener_grid: ArrayLike,
+    valid: ArrayLike | None = None,
+    chunk_size: int = 1000,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     r"""Compute the TA-SC-IVR spectrum of a single trajectory by direct summation.
 
     .. deprecated:: 0.1.0
@@ -191,18 +200,15 @@ def get_ta_spectrum_naive(
 
     amp = np.empty((len(ener_grid),), dtype=complex)
     for s in range(0, len(ener_grid), chunk_size):
-        e = ener_grid[s:s + chunk_size]
-        amp[s:s + chunk_size] = np.exp(1j * np.outer(e, t) / HBar) @ val # sum_j val_j exp(+2 pi i k j / n_fft)
+        e = ener_grid[s : s + chunk_size]
+        amp[s : s + chunk_size] = np.exp(1j * np.outer(e, t) / HBar) @ val  # sum_j val_j exp(+2 pi i k j / n_fft)
 
     return ener_grid, np.abs(amp) ** 2 / (n_step * dt)
 
+
 def get_ta_spectrum_fft(
-        prefactor: ArrayLike,
-        overlap: ArrayLike,
-        action: ArrayLike,
-        dt: float,
-        n_fft: int,
-        valid: ArrayLike | None = None) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    prefactor: ArrayLike, overlap: ArrayLike, action: ArrayLike, dt: float, n_fft: int, valid: ArrayLike | None = None
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     r"""Compute the TA-SC-IVR spectrum of a single trajectory by zero-padded FFT (Eq. (12) in the paper).
 
     .. math::
@@ -249,6 +255,6 @@ def get_ta_spectrum_fft(
         val = np.exp(1j * np.angle(prefactor) + 1j * np.asarray(action) / HBar) * overlap
     val = np.where(valid, val, 0.0) * _simpson_weights(n_step, dt)
 
-    amp = np.fft.ifft(val, n=n_fft) * n_fft # sum_j val_j exp(+2 pi i k j / n_fft)
+    amp = np.fft.ifft(val, n=n_fft) * n_fft  # sum_j val_j exp(+2 pi i k j / n_fft)
     ener_grid = 2.0 * np.pi * HBar * np.arange(n_fft) / (n_fft * dt)
     return ener_grid, np.abs(amp) ** 2 / (n_step * dt)

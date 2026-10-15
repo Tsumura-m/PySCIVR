@@ -26,4 +26,3 @@ from .variations import (
     propagate_variation_implicit,
     to_internal,
 )
-

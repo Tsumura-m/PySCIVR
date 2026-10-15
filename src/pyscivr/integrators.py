@@ -32,6 +32,7 @@ jax.config.update("jax_enable_x64", True)
 # base class
 ##################################################################################################
 
+
 class Integrator(ABC):
     r"""Base class for integrators in Cartesian coordinates.
 
@@ -55,14 +56,9 @@ class Integrator(ABC):
         i_step: Initial step index.
     """
 
-    def __init__(self,
-            calculator: Calculator,
-            posi: ArrayLike,
-            mome: ArrayLike,
-            mass: ArrayLike,
-            dt: float,
-            *,
-            i_step: int = 0) -> None:
+    def __init__(
+        self, calculator: Calculator, posi: ArrayLike, mome: ArrayLike, mass: ArrayLike, dt: float, *, i_step: int = 0
+    ) -> None:
         self.calculator = calculator
         self.posi = np.asarray(posi, dtype=float).reshape(-1, 3)
         self.mome = np.asarray(mome, dtype=float).reshape(-1, 3)
@@ -98,14 +94,18 @@ class Integrator(ABC):
         """Extra records for the initial step."""
         return {}
 
-
     def _record(self, extra: dict[str, Any]) -> None:
         """Record the current state."""
-        rec = dict(posi=self.posi, mome=self.mome, potential_energy=self.potential_energy,
-                   force=self.force, total_energy=self.get_total_energy(), **extra)
+        rec = dict(
+            posi=self.posi,
+            mome=self.mome,
+            potential_energy=self.potential_energy,
+            force=self.force,
+            total_energy=self.get_total_energy(),
+            **extra,
+        )
         for key, val in rec.items():
             self.records.setdefault(key, []).append(val)
-
 
     def run(self, n_step: int) -> dict[str, Any]:
         """Run the integrator for ``n_step`` steps.
@@ -159,19 +159,22 @@ class Verlet(Integrator):
 # SHAKE/RATTLE integrator
 ##################################################################################################
 
+
 def _pinv(G: jax.Array, rcond: float) -> jax.Array:
     """Compute the pseudo-inverse of G using SVD."""
     U, S, Vt = jnp.linalg.svd(G, full_matrices=False)
     S_inv = jnp.where(S > rcond * S[0], 1.0 / S, 0.0)
     return (Vt.T * S_inv[None, :]) @ U.T  # (3N, K)
 
+
 def _build_shake_rattle(
-        coord_const: InternalCoordinates,
-        dt: float,
-        mass: tuple[float, ...],
-        max_iter_shake: int,
-        tol_shake: float,
-        rcond: float) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any], jax.Array]:
+    coord_const: InternalCoordinates,
+    dt: float,
+    mass: tuple[float, ...],
+    max_iter_shake: int,
+    tol_shake: float,
+    rcond: float,
+) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any], jax.Array]:
     """Build the jitted functions of SHAKE/RATTLE integrator."""
     sqrt_mass_flat = jnp.sqrt(np.repeat(mass, 3))
     const_func = coord_const.get_const
@@ -191,10 +194,8 @@ def _build_shake_rattle(
 
     @jax.jit
     def shake_step(
-            posi_mwc: jax.Array,
-            mome_mwc: jax.Array,
-            force: jax.Array,
-            G_pinv_mwc: jax.Array) -> tuple[jax.Array, ...]: # Eqs. (25)-(26)
+        posi_mwc: jax.Array, mome_mwc: jax.Array, force: jax.Array, G_pinv_mwc: jax.Array
+    ) -> tuple[jax.Array, ...]:  # Eqs. (25)-(26)
         """Perform a SHAKE step."""
         force_mwc = force.reshape(-1) / sqrt_mass_flat
         mome_mwc_half = mome_mwc + 0.5 * dt * force_mwc
@@ -205,7 +206,7 @@ def _build_shake_rattle(
             return (i < max_iter_shake) & (jnp.max(jnp.abs(f)) > tol_shake)
 
         def body_func(carry):
-            i, x, f = carry   # i: iteration count, x: current position, f: residual of constraints
+            i, x, f = carry  # i: iteration count, x: current position, f: residual of constraints
             x -= G_pinv_mwc @ f
             return i + 1, x, const_func(x / sqrt_mass_flat)
 
@@ -217,13 +218,12 @@ def _build_shake_rattle(
         lam = G_pinv_mwc.T @ delta_posi_mwc / dt
         mome_mwc_half += delta_posi_mwc / dt
 
-        return posi_mwc_new, posi_mwc_new / sqrt_mass_flat, mome_mwc_half, \
-                lam, n_iter, jnp.max(jnp.abs(f_final))
+        return posi_mwc_new, posi_mwc_new / sqrt_mass_flat, mome_mwc_half, lam, n_iter, jnp.max(jnp.abs(f_final))
 
     @jax.jit
-    def rattle_step(posi_mwc_new: jax.Array,
-                    mome_mwc_half: jax.Array,
-                    force_new: jax.Array) -> tuple[jax.Array, ...]: # Eq. (27)
+    def rattle_step(
+        posi_mwc_new: jax.Array, mome_mwc_half: jax.Array, force_new: jax.Array
+    ) -> tuple[jax.Array, ...]:  # Eq. (27)
         """Perform a RATTLE step."""
         force_mwc_new = force_new.reshape(-1) / sqrt_mass_flat
         G_mwc = get_G_mwc(posi_mwc_new)
@@ -236,6 +236,7 @@ def _build_shake_rattle(
         return mome_mwc_new, mome_mwc_new * sqrt_mass_flat, mu, G_pinv_mwc
 
     return initialize, shake_step, rattle_step, sqrt_mass_flat
+
 
 class ShakeRattle(Integrator):
     r"""SHAKE/RATTLE integrator with holonomic constraints :math:`F(q) = 0`.
@@ -276,23 +277,26 @@ class ShakeRattle(Integrator):
         AssertionError: If the initial positions do not satisfy the constraints within ``tol_init``.
     """
 
-    def __init__(self,
-            calculator: Calculator,
-            posi: ArrayLike,
-            mome: ArrayLike,
-            mass: ArrayLike,
-            dt: float,
-            coord_const: InternalCoordinates,
-            *,
-            max_iter_shake: int = 50,
-            tol_shake: float = 1e-10,
-            rcond: float = 1e-10,
-            tol_init: float = 1e-8,
-            i_step: int = 0):
+    def __init__(
+        self,
+        calculator: Calculator,
+        posi: ArrayLike,
+        mome: ArrayLike,
+        mass: ArrayLike,
+        dt: float,
+        coord_const: InternalCoordinates,
+        *,
+        max_iter_shake: int = 50,
+        tol_shake: float = 1e-10,
+        rcond: float = 1e-10,
+        tol_init: float = 1e-8,
+        i_step: int = 0,
+    ):
 
         super().__init__(calculator, posi, mome, mass, dt, i_step=i_step)
-        initialize, self._shake_step, self._rattle_step, self._sqrt_mass_flat = \
-            _build_shake_rattle(coord_const, self.dt, tuple(self.mass.tolist()), max_iter_shake, tol_shake, rcond)
+        initialize, self._shake_step, self._rattle_step, self._sqrt_mass_flat = _build_shake_rattle(
+            coord_const, self.dt, tuple(self.mass.tolist()), max_iter_shake, tol_shake, rcond
+        )
 
         # initialize
         err = np.max(np.abs(np.asarray(coord_const.get_const(self.posi.reshape(-1)))))
@@ -315,7 +319,8 @@ class ShakeRattle(Integrator):
             Extra records for the current step, including ``lam``, ``mu``, ``n_iter_shake``, and ``err_shake``.
         """
         posi_mwc_new, posi_new, mome_mwc_half, lam, n_iter, err = self._shake_step(
-            self._posi_mwc, self._mome_mwc, self.force, self._G_pinv_mwc)
+            self._posi_mwc, self._mome_mwc, self.force, self._G_pinv_mwc
+        )
 
         # potential energy and force at new positions
         self.posi = np.asarray(posi_new).reshape(-1, 3)
@@ -334,14 +339,16 @@ class ShakeRattle(Integrator):
 # Implicit Verlet integrator
 ##################################################################################################
 
+
 @lru_cache(maxsize=128)
 def _build_implicit_verlet(
-        metric_func: Callable[[jax.Array], jax.Array],
-        potential_func: Callable[[jax.Array], float] | None,
-        dt: float,
-        normalize: bool,
-        max_iter_newton: int,
-        tol_newton: float) -> tuple[Callable[..., Any], Callable[..., Any]]:
+    metric_func: Callable[[jax.Array], jax.Array],
+    potential_func: Callable[[jax.Array], float] | None,
+    dt: float,
+    normalize: bool,
+    max_iter_newton: int,
+    tol_newton: float,
+) -> tuple[Callable[..., Any], Callable[..., Any]]:
     """Build the jitted functions of ImplicitVerlet integrator."""
     if potential_func is None:
         potential_func = lambda q: 0.0
@@ -351,8 +358,7 @@ def _build_implicit_verlet(
 
     dHdq = jax.jit(jax.grad(hamiltonian, argnums=0))
 
-    def newton(residual_func: Callable[[jax.Array], jax.Array],
-               x_init: jax.Array) -> tuple[jax.Array, int, float]:
+    def newton(residual_func: Callable[[jax.Array], jax.Array], x_init: jax.Array) -> tuple[jax.Array, int, float]:
         """Solve residual_func(x) = 0 using Newton's method."""
         jacobian_func = jax.jacrev(residual_func)
 
@@ -391,6 +397,7 @@ def _build_implicit_verlet(
     @partial(jax.jit, static_argnums=2)
     def run_scan(posi: jax.Array, mome: jax.Array, n_step: int) -> tuple[jax.Array, ...]:
         """Run the implicit Verlet integrator for n_step steps."""
+
         def body_func(carry, _):
             posi, mome = carry
             posi_new, mome_new, mome_half, n_iter, err = step_func(posi, mome)
@@ -407,6 +414,7 @@ def _build_implicit_verlet(
         return pot, pot + kin
 
     return run_scan, _energies
+
 
 class ImplicitVerlet:
     r"""Implicit Verlet integrator for :math:`H(Q, P) = \frac{1}{2} P^T G(Q) P + V(Q)`.
@@ -459,17 +467,19 @@ class ImplicitVerlet:
         Check the condition number of :math:`G(Q)` before use.
     """
 
-    def __init__(self,
-            posi: ArrayLike,
-            mome: ArrayLike,
-            dt: float,
-            metric_func: Callable[[jax.Array], jax.Array],
-            *,
-            potential_func: Callable[[jax.Array], float] | None = None,
-            normalize: bool = False,
-            max_iter_newton: int = 50,
-            tol_newton: float = 1e-12,
-            i_step: int = 0) -> None:
+    def __init__(
+        self,
+        posi: ArrayLike,
+        mome: ArrayLike,
+        dt: float,
+        metric_func: Callable[[jax.Array], jax.Array],
+        *,
+        potential_func: Callable[[jax.Array], float] | None = None,
+        normalize: bool = False,
+        max_iter_newton: int = 50,
+        tol_newton: float = 1e-12,
+        i_step: int = 0,
+    ) -> None:
 
         self.posi = np.asarray(posi, dtype=float).reshape(-1)
         self.mome = np.asarray(mome, dtype=float).reshape(-1)
@@ -484,18 +494,34 @@ class ImplicitVerlet:
             self.posi /= np.linalg.norm(self.posi)
             self.mome -= (self.mome @ self.posi) * self.posi
 
-        self._run_scan, self._energies = _build_implicit_verlet(metric_func, potential_func, dt,
-                                                                normalize, max_iter_newton, tol_newton)
+        self._run_scan, self._energies = _build_implicit_verlet(
+            metric_func, potential_func, dt, normalize, max_iter_newton, tol_newton
+        )
 
-        self._append(self.posi[None], self.mome[None], np.zeros((1, self.n_dim), dtype=float),
-                     np.zeros((1, 2), dtype=int), np.zeros((1, 2), dtype=float))
+        self._append(
+            self.posi[None],
+            self.mome[None],
+            np.zeros((1, self.n_dim), dtype=float),
+            np.zeros((1, 2), dtype=int),
+            np.zeros((1, 2), dtype=float),
+        )
 
-    def _append(self, posi: ArrayLike, mome: ArrayLike,
-                mome_half: ArrayLike, n_iter: ArrayLike, err: ArrayLike) -> None:
+    def _append(
+        self, posi: ArrayLike, mome: ArrayLike, mome_half: ArrayLike, n_iter: ArrayLike, err: ArrayLike
+    ) -> None:
         """Append the current state to the records."""
         pot, tot = self._energies(posi, mome)
-        rec = dict(posi=posi, mome=mome, mome_half=mome_half, potential_energy=pot, total_energy=tot,
-                   n_iter_mome=n_iter[:, 0], n_iter_posi=n_iter[:, 1], err_mome=err[:, 0], err_posi=err[:, 1])
+        rec = dict(
+            posi=posi,
+            mome=mome,
+            mome_half=mome_half,
+            potential_energy=pot,
+            total_energy=tot,
+            n_iter_mome=n_iter[:, 0],
+            n_iter_posi=n_iter[:, 1],
+            err_mome=err[:, 0],
+            err_posi=err[:, 1],
+        )
 
         for key, val in rec.items():
             self.records.setdefault(key, []).append(np.asarray(val))

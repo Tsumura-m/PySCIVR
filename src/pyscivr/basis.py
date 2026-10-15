@@ -18,23 +18,18 @@ from .units import HBar
 
 TOPOLOGIES = ("R", "R+", "S1", "I-", "I+")
 
+
 def _overlap_r1(
-        posi_ref: ArrayLike, mome_ref: ArrayLike, posi: ArrayLike, mome: ArrayLike,
-        gamma: float) -> NDArray[np.complex128]:
+    posi_ref: ArrayLike, mome_ref: ArrayLike, posi: ArrayLike, mome: ArrayLike, gamma: float
+) -> NDArray[np.complex128]:
     dq = posi_ref - posi
     dp = mome_ref - mome
-    return np.exp(-0.25 * gamma * dq**2 - 0.25 / (gamma * HBar**2) * dp**2
-                  + 0.5j / HBar * (mome_ref + mome) * dq)
+    return np.exp(-0.25 * gamma * dq**2 - 0.25 / (gamma * HBar**2) * dp**2 + 0.5j / HBar * (mome_ref + mome) * dq)
+
 
 def overlap_1d(
-        topology: str,
-        posi_ref: float,
-        mome_ref: float,
-        posi: ArrayLike,
-        mome: ArrayLike,
-        gamma: float,
-        *,
-        n_image: int = 3) -> NDArray[np.complex128]:
+    topology: str, posi_ref: float, mome_ref: float, posi: ArrayLike, mome: ArrayLike, gamma: float, *, n_image: int = 3
+) -> NDArray[np.complex128]:
     r"""Compute the overlap :math:`\langle q_{\text{ref}}, p_{\text{ref}} | q, p \rangle` for a 1D topology.
 
     Args:
@@ -68,8 +63,7 @@ def overlap_1d(
     if topology == "R":
         return _overlap_r1(posi_ref, mome_ref, posi, mome, gamma)
     if topology == "R+":
-        return _overlap_r1(posi_ref, mome_ref, posi, mome, gamma) \
-               - _overlap_r1(-posi_ref, -mome_ref, posi, mome, gamma)
+        return _overlap_r1(posi_ref, mome_ref, posi, mome, gamma) - _overlap_r1(-posi_ref, -mome_ref, posi, mome, gamma)
 
     shifts = 2.0 * np.pi * np.arange(-n_image, n_image + 1).reshape((-1,) + (1,) * posi.ndim)
     direct = np.sum(_overlap_r1(posi_ref + shifts, mome_ref, posi, mome, gamma), axis=0)
@@ -85,15 +79,17 @@ def overlap_1d(
 
     raise ValueError(f"Unknown topology: {topology}")
 
+
 def get_overlap(
-        topologies: Sequence[str],
-        posi_ref: ArrayLike,
-        mome_ref: ArrayLike,
-        posi: ArrayLike,
-        mome: ArrayLike,
-        gammas: ArrayLike,
-        *,
-        n_image: int = 3) -> NDArray[np.complex128]:
+    topologies: Sequence[str],
+    posi_ref: ArrayLike,
+    mome_ref: ArrayLike,
+    posi: ArrayLike,
+    mome: ArrayLike,
+    gammas: ArrayLike,
+    *,
+    n_image: int = 3,
+) -> NDArray[np.complex128]:
     r"""Compute the overlap :math:`\langle q_{\text{ref}}, p_{\text{ref}} | q, p \rangle` for multiple 1D topologies.
 
     The total overlap is the product of the 1D overlaps for each coordinate.

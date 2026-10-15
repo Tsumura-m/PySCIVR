@@ -17,10 +17,11 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import CubicSpline
 
-from .units import Hartree, Bohr
+from .units import Bohr, Hartree
 
 if TYPE_CHECKING:
     from ase.calculators.calculator import Calculator as ASECalculator
+
 
 def _as_batch(positions: ArrayLike) -> tuple[NDArray[np.float64], bool]:
     """Ensure positions have a batch axis.
@@ -47,6 +48,7 @@ def _as_batch(positions: ArrayLike) -> tuple[NDArray[np.float64], bool]:
 # Base class for potential energy calculators
 ##################################################################################################
 
+
 class Calculator(ABC):
     """Base class for potential energy calculators.
 
@@ -57,8 +59,7 @@ class Calculator(ABC):
     """
 
     @abstractmethod
-    def _energy_forces_batch(self,
-                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _energy_forces_batch(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Compute the energies and forces for a batch of geometries.
 
         Args:
@@ -81,11 +82,11 @@ class Calculator(ABC):
         Raises:
             NotImplementedError: If the subclass does not implement an analytic Hessian.
         """
-        raise NotImplementedError(f"{type(self).__name__} does not implement an analytic Hessian."
-                                   " Use finite differences in hessian.py.")
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement an analytic Hessian. Use finite differences in hessian.py."
+        )
 
-    def energy_forces(self,
-                      positions: ArrayLike) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def energy_forces(self, positions: ArrayLike) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Compute the energy and forces for a single geometry or a batch of geometries.
 
         Args:
@@ -134,8 +135,7 @@ class Calculator(ABC):
 class ZeroPotential(Calculator):
     """Zero potential. The energies, forces and Hessians are all zero."""
 
-    def _energy_forces_batch(self,
-                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _energy_forces_batch(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         n_batch, n_atoms, _ = x.shape
         return np.zeros(n_batch), np.zeros_like(x)
 
@@ -144,23 +144,71 @@ class ZeroPotential(Calculator):
         return np.zeros((n_batch, n_atoms * 3, n_atoms * 3))
 
 
-
 ###################################################################################################
 # hydrogen: CCSD(T)/aug-cc-pV5Z Scan + Cubic spline
 # Computed with Gaussian 16, Revision A.03, M. J. Frisch et al., Gaussian, Inc., Wallingford CT, 2016.
 ###################################################################################################
 
-_H2_ENERGY_HARTREE = np.array([
-    -0.98163485470E+00,-0.10146982768E+01,-0.10427841611E+01,-0.10666345859E+01,-0.10868635139E+01,-0.11039825385E+01,
-    -0.11184206959E+01,-0.11305398917E+01,-0.11406470591E+01,-0.11490038686E+01,-0.11558343459E+01,-0.11613312863E+01,
-    -0.11656611580E+01,-0.11689682309E+01,-0.11713779485E+01,-0.11729997224E+01,-0.11739292665E+01,-0.11742505492E+01,
-    -0.11740374330E+01,-0.11733550521E+01,-0.11722609079E+01,-0.11708061217E+01,-0.11690358828E+01,-0.11669904242E+01,
-    -0.11647055778E+01,-0.11622133277E+01,-0.11595421926E+01,-0.11567177408E+01,-0.11537628634E+01,-0.11506980943E+01,
-    -0.11475418749E+01,-0.11443107844E+01,-0.11410197413E+01,-0.11376821813E+01,-0.11343102132E+01,-0.11309147566E+01,
-    -0.11275056642E+01,-0.11240918298E+01,-0.11206812837E+01,-0.11172812777E+01,-0.11138983603E+01,-0.11105384316E+01,
-    -0.11072068458E+01,-0.11039084015E+01,-0.11006474289E+01,-0.10974278217E+01,-0.10942530746E+01,-0.10911263171E+01,
-    -0.10880503432E+01,-0.10850276381E+01,-0.10820604028E+01,-0.10791505749E+01,-0.10762998496E+01,-0.10735096919E+01,
-    -0.10707813591E+01,-0.10681159100E+01])
+_H2_ENERGY_HARTREE = np.array(
+    [
+        -0.98163485470e00,
+        -0.10146982768e01,
+        -0.10427841611e01,
+        -0.10666345859e01,
+        -0.10868635139e01,
+        -0.11039825385e01,
+        -0.11184206959e01,
+        -0.11305398917e01,
+        -0.11406470591e01,
+        -0.11490038686e01,
+        -0.11558343459e01,
+        -0.11613312863e01,
+        -0.11656611580e01,
+        -0.11689682309e01,
+        -0.11713779485e01,
+        -0.11729997224e01,
+        -0.11739292665e01,
+        -0.11742505492e01,
+        -0.11740374330e01,
+        -0.11733550521e01,
+        -0.11722609079e01,
+        -0.11708061217e01,
+        -0.11690358828e01,
+        -0.11669904242e01,
+        -0.11647055778e01,
+        -0.11622133277e01,
+        -0.11595421926e01,
+        -0.11567177408e01,
+        -0.11537628634e01,
+        -0.11506980943e01,
+        -0.11475418749e01,
+        -0.11443107844e01,
+        -0.11410197413e01,
+        -0.11376821813e01,
+        -0.11343102132e01,
+        -0.11309147566e01,
+        -0.11275056642e01,
+        -0.11240918298e01,
+        -0.11206812837e01,
+        -0.11172812777e01,
+        -0.11138983603e01,
+        -0.11105384316e01,
+        -0.11072068458e01,
+        -0.11039084015e01,
+        -0.11006474289e01,
+        -0.10974278217e01,
+        -0.10942530746e01,
+        -0.10911263171e01,
+        -0.10880503432e01,
+        -0.10850276381e01,
+        -0.10820604028e01,
+        -0.10791505749e01,
+        -0.10762998496e01,
+        -0.10735096919e01,
+        -0.10707813591e01,
+        -0.10681159100e01,
+    ]
+)
 
 # 0.4 ~ 1.5 Angstroms, 0.02 Angstrom spacing
 _H2_DIST_ANGS = 0.4 + np.arange(len(_H2_ENERGY_HARTREE)) * 0.02
@@ -187,28 +235,25 @@ class H2SplinePotential(Calculator):
         self._spline = CubicSpline(_H2_DIST_ANGS, _H2_ENERGY_HARTREE * Hartree)
         self.atom_indices = tuple((0, 1))
 
-    def _bond(self,
-              x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _bond(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         i, j = self.atom_indices
         d = x[:, j] - x[:, i]
         r = np.linalg.norm(d, axis=1)
         u = d / r[:, None]
         return r, u
 
-    def _energy_forces_batch(self,
-                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _energy_forces_batch(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         i, j = self.atom_indices
         r, u = self._bond(x)
         ener = self._spline(r)
-        g_B = self._spline(r, 1)[:, None] * u   # dV/dx_j
+        g_B = self._spline(r, 1)[:, None] * u  # dV/dx_j
 
         force = np.zeros_like(x)
         force[:, i] = g_B
         force[:, j] = -g_B
         return ener, force
 
-    def _hessian_batch(self,
-                       x: NDArray[np.float64]) -> NDArray[np.float64]:
+    def _hessian_batch(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         i, j = self.atom_indices
         r, u = self._bond(x)
         dv = self._spline(r, 1)  # V'(r)
@@ -231,6 +276,7 @@ class H2SplinePotential(Calculator):
 # ASE calculators (MACE etc.)
 ##################################################################################################
 
+
 class ASEPotential(Calculator):
     """Wrapper for ASE calculators.
 
@@ -248,8 +294,7 @@ class ASEPotential(Calculator):
         self.atoms = Atoms(symbols=symbols, positions=np.zeros((len(symbols), 3)))
         self.atoms.calc = calc
 
-    def _energy_forces_batch(self,
-                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _energy_forces_batch(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         ener = np.empty(len(x))
         force = np.empty_like(x)
         for i, pos in enumerate(x):
@@ -268,12 +313,13 @@ def _patch_torch_jit_load_cpu() -> None:
     _real = torch.jit.load
 
     def _jit_load_cpu(f, map_location=None, *args, **kwargs):
-        return _real(f, map_location=torch.device('cpu'), *args, **kwargs)
+        return _real(f, map_location=torch.device("cpu"), *args, **kwargs)
+
     _jit_load_cpu.__is_patched__ = True
     torch.jit.load = _jit_load_cpu
 
-def mace_anicc_potential(symbols: Sequence[str], *,
-                         device: str | None = None, num_threads: int = 1) -> ASEPotential:
+
+def mace_anicc_potential(symbols: Sequence[str], *, device: str | None = None, num_threads: int = 1) -> ASEPotential:
     """Make a calculator with the pre-trained MACE-ANICC model.
 
     Args:
@@ -299,9 +345,11 @@ def mace_anicc_potential(symbols: Sequence[str], *,
 
     return ASEPotential(symbols, mace_anicc(device=device))
 
+
 ##################################################################################################
 # PySCF DFT calculator
 ##################################################################################################
+
 
 class DFTPotential(Calculator):
     """Potential by DFT calculations with PySCF.
@@ -319,8 +367,16 @@ class DFTPotential(Calculator):
         conv_tol: Convergence threshold of the SCF energy [Hartree].
     """
 
-    def __init__(self, symbols: Sequence[str], *, basis: str = "def2-svp", xc: str = "b3lyp",
-                 charge: int = 0, spin: int = 0, conv_tol: float = 1e-10) -> None:
+    def __init__(
+        self,
+        symbols: Sequence[str],
+        *,
+        basis: str = "def2-svp",
+        xc: str = "b3lyp",
+        charge: int = 0,
+        spin: int = 0,
+        conv_tol: float = 1e-10,
+    ) -> None:
         self.symbols = list(symbols)
         self.basis = basis
         self.xc = xc
@@ -328,17 +384,22 @@ class DFTPotential(Calculator):
         self.spin = spin
         self.conv_tol = conv_tol
 
-    def _energy_forces_batch(self,
-                             x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _energy_forces_batch(self, x: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         from pyscf import dft, gto
 
         ener = np.empty(len(x))
         force = np.empty_like(x)
         for i, pos in enumerate(x):
-            mol = gto.M(atom=[(s, tuple(p)) for s, p in zip(self.symbols, pos)], basis=self.basis,
-                        charge=self.charge, spin=self.spin, unit="Angstrom", verbose=0)
+            mol = gto.M(
+                atom=[(s, tuple(p)) for s, p in zip(self.symbols, pos)],
+                basis=self.basis,
+                charge=self.charge,
+                spin=self.spin,
+                unit="Angstrom",
+                verbose=0,
+            )
             mf = dft.RKS(mol, xc=self.xc) if self.spin == 0 else dft.UKS(mol, xc=self.xc)
             mf.conv_tol = self.conv_tol
-            ener[i] = mf.kernel() * Hartree                                # Hartree -> eV
-            force[i] = -mf.nuc_grad_method().kernel() * Hartree / Bohr     # Hartree/Bohr -> eV/Angs
+            ener[i] = mf.kernel() * Hartree  # Hartree -> eV
+            force[i] = -mf.nuc_grad_method().kernel() * Hartree / Bohr  # Hartree/Bohr -> eV/Angs
         return ener, force
