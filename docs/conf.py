@@ -23,8 +23,7 @@ extensions = [
     'sphinx.ext.mathjax',   # for rendering math equations
     'sphinx.ext.viewcode',  # for adding links to source code
     'sphinx.ext.intersphinx',  # for linking to external documentation
-    'myst_parser',  # for parsing Markdown files
-    'nbsphinx', # for notebooks
+    'myst_nb',  # for Markdown and Jupyter notebooks
 ]
 
 intersphinx_mapping = {
@@ -49,3 +48,5 @@ autodoc_type_aliases = {
     'ArrayLike': 'numpy.typing.ArrayLike',
     'NDArray': 'numpy.typing.NDArray',
 }
+
+nb_execution_mode = "off"
