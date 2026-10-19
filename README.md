@@ -76,7 +76,7 @@ In VS Code, select `.venv/bin/python` as the Python interpreter or the notebook 
 ## Documentation
 
 The API reference and the executed tutorials are available at
-https://tsumura-m.github.io/PySCIVR/.
+[https://tsumura-m.github.io/PySCIVR](https://tsumura-m.github.io/PySCIVR).
 
 The documentation can also be built locally:
 
@@ -95,7 +95,11 @@ non-spreading wavepackets in dynamics calculations,"
 
 [2] M. Tsumura and Y. Kurashige, "Semiclassical initial value representation in
 curvilinear coordinates," *J. Chem. Phys.* (Under Review);
-ChemRxiv, https://doi.org/10.26434/chemrxiv.15008503/v1
+ChemRxiv, https://doi.org/10.26434/chemrxiv.15008503
 
 [3] Y. Elran and K. G. Kay, "Improving the efficiency of the Herman–Kluk propagator
-by time integration," *J. Chem. Phys.* **110**, 3653–3659 (1999).
+by time integration," *J. Chem. Phys.* **110**, 3653–3659 (1999).;
+A. L. Kaledin and W. H. Miller, "Time averaging the semiclassical
+initial value representation for the calculation of vibrational
+energy levels. II. Application to H2CO, NH3, CH4, CH2D2,"
+*J. Chem. Phys.* **119**, 3078–3084 (2003). 

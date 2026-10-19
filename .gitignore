@@ -12,6 +12,7 @@ wheels/
 
 # Optional
 *.npz
+.ipynb_checkpoints/
 .DS_Store
 dev/
 docs/_build/
