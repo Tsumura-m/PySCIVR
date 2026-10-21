@@ -334,7 +334,7 @@ def make_jacobi_func(
     get_const_grad = coord_all.get_const_grad
     get_value = coord_all.get_value
     get_hess_kj = coord_all.get_const_hess_kj_contract
-    unit_active = jnp.eye(len(coord_all.coords))[:, active_idx]  # (3N, m)
+    unit_active = jnp.eye(len(coord_all))[:, active_idx]  # (3N, m)
     _, _, _, _get_R_active = make_converters(coord_all, active_idx)  # R_A
 
     def _get_jacobi_and_internal(posi: jax.Array, mome: jax.Array) -> tuple[jax.Array, ...]:

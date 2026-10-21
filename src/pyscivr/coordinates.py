@@ -294,6 +294,8 @@ class InternalCoordinates:
         self.remove_euler = False
         self.normal_vectors = []
         self._built = False
+        self.local_kinds = dict(LOCAL_KINDS)
+        self.kind_order = list(KIND_ORDER)
 
     def __repr__(self) -> str:
         lines = ["InternalCoordinates:"]
@@ -301,8 +303,25 @@ class InternalCoordinates:
             lines.append(f"  {i:3d}: {c.kind:15s} {c.atom_indices} value_ref={c.value_ref:.6f}")
         return "\n".join(lines)
 
+    def __len__(self) -> int:
+        """Return the number of coordinates."""
+        return len(self.coords)
+
+    def add_local(self, kind: str, atoms: tuple[int, ...], name: str | None = None) -> None:
+        """Add a local coordinate defined by a small number of atoms.
+
+        Args:
+            kind: Kind of the coordinate.
+            atoms: Indices of the atoms defining the coordinate, in the same
+                order as required by the coordinate function.
+            name: Name of the coordinate.
+                If ``None``, a default name is generated based on ``kind`` and ``atoms``.
+        """
+        self._add_local(kind, atoms, name)
+
     def _add_local(self, kind: str, atoms: tuple[int, ...], name: str | None = None) -> None:  # local
-        func, n, topology = LOCAL_KINDS[kind]
+        assert kind in self.local_kinds, f"Unknown local coordinate kind: {kind}"
+        func, n, topology = self.local_kinds[kind]
         atoms = tuple(int(a) for a in atoms)
         assert len(atoms) == n and len(set(atoms)) == n, f"Invalid atoms for {kind}: {atoms}"
         assert all(0 <= a < self.n_atom for a in atoms), f"Atom indices out of range: {atoms}"
@@ -461,9 +480,9 @@ class InternalCoordinates:
             return
         self._built = True
         for c in self.coords:
-            assert c.kind in KIND_ORDER, f"Unknown kind: {c.kind}"
+            assert c.kind in self.kind_order, f"Unknown kind: {c.kind}"
 
-        self.argsort = sorted(range(len(self.coords)), key=lambda i: KIND_ORDER.index(self.coords[i].kind))
+        self.argsort = sorted(range(len(self.coords)), key=lambda i: self.kind_order.index(self.coords[i].kind))
         self.coords = [self.coords[i] for i in self.argsort]
         self.inv_argsort = np.empty(len(self.argsort), dtype=int)
         self.inv_argsort[self.argsort] = np.arange(len(self.argsort))
@@ -492,7 +511,10 @@ class InternalCoordinates:
 
         # local groups: (function, atom_indices, row slice)
         groups = []
-        for kind, (func, n, _) in LOCAL_KINDS.items():
+        for kind in self.kind_order:
+            if kind not in self.local_kinds:
+                continue
+            func, n, _ = self.local_kinds[kind]
             rows = [i for i, c in enumerate(coords) if c.kind == kind]
             if not rows:
                 continue
@@ -607,7 +629,7 @@ class InternalCoordinates:
         self.get_const_batch = jax.jit(jax.vmap(self.get_const, in_axes=0, out_axes=0))
         self.get_const_grad_batch = jax.jit(jax.vmap(self.get_const_grad, in_axes=0, out_axes=0))
 
-        print(f"Build complete: {len(coords)} coordinates")
+        print(f"Build complete: {len(self)} coordinates")
 
     def find_coordinate(self, kind: str, atoms: Sequence[int]) -> tuple[int, float, str, str]:
         """Find a local coordinate after :meth:`build` from its kind and atom indices.
@@ -631,13 +653,38 @@ class InternalCoordinates:
         atoms = tuple(int(a) for a in atoms)
         matches = [i for i, c in enumerate(self.coords) if c.kind == kind and c.atom_indices == atoms]
         if not matches:
-            available = [(c.kind, c.atom_indices) for c in self.coords if c.kind in LOCAL_KINDS]
+            available = [(c.kind, c.atom_indices) for c in self.coords if c.kind in self.local_kinds]
             raise KeyError(f"Coordinate {kind}{atoms} not found. Available: {available}")
         if len(matches) > 1:
             raise ValueError(f"Coordinate {kind}{atoms} is not unique (rows {matches}).")
         i = matches[0]
         c = self.coords[i]
         return i, float(c.value_ref), c.name, c.topology
+
+    def register_kind(self, kind: str, func: Callable[[jax.Array], jax.Array], n_atoms: int, topology: str) -> None:
+        """Register a new kind of local coordinate.
+
+        Args:
+            kind: Kind of the coordinate (e.g. ``"bond"``, ``"dihedral"``).
+            func: Function that computes the coordinate value from the positions of the atoms.
+                It should take an array of shape ``(n_atoms, 3)`` and return a scalar.
+            n_atoms: Number of atoms defining the coordinate.
+            topology: Topology of the coordinate (e.g. ``S1``, ``R``, etc.).
+
+        Examples:
+            For example, to fix the difference of two bond lengths,
+            one can define a new coordinate kind ``"bond_diff"`` as follows:
+
+            >>> def bond_diff(p: jax.Array) -> jax.Array:
+            ...     return jnp.linalg.norm(p[1] - p[0]) - jnp.linalg.norm(p[2] - p[0])
+            >>> coord = InternalCoordinates(posi_ref, mass)
+            >>> coord.register_kind("bond_diff", bond_diff, 3, R)
+            >>> coord.add_local("bond_diff", (0, 1, 2))
+        """
+        assert kind not in self.local_kinds, f"Kind {kind} is already registered."
+        assert topology in (R, R_PLUS, S1, I_MINUS), f"Invalid topology: {topology}"
+        self.local_kinds[kind] = (func, n_atoms, topology)
+        self.kind_order.append(kind)
 
 
 ##################################################################################################
@@ -689,6 +736,10 @@ class QuaternionCoordinates:
             lines.append(f"  {i:3d}: {name:15s}")
         return "\n".join(lines)
 
+    def __len__(self) -> int:
+        """Return the number of coordinates."""
+        return len(self.coords)
+
     def build(self) -> None:
         """Do nothing, since the coordinate system is already defined."""
         print("Build is not required for QuaternionCoordinate, as it is already defined.")
@@ -725,8 +776,8 @@ def make_converters(
         For :class:`QuaternionCoordinates`, 3N is replaced by 4.
     """
     if active_idx is None:
-        active_idx = np.arange(len(coord_all.coords))
-    const_idx = np.setdiff1d(np.arange(len(coord_all.coords)), active_idx)
+        active_idx = np.arange(len(coord_all))
+    const_idx = np.setdiff1d(np.arange(len(coord_all)), active_idx)
     mass_inv_flat = jnp.asarray(coord_all.mass_inv_flat, dtype=float)
     get_value, get_grad = coord_all.get_value, coord_all.get_const_grad
 
