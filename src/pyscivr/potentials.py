@@ -403,3 +403,28 @@ class DFTPotential(Calculator):
             ener[i] = mf.kernel() * Hartree  # Hartree -> eV
             force[i] = -mf.nuc_grad_method().kernel() * Hartree / Bohr  # Hartree/Bohr -> eV/Angs
         return ener, force
+
+class ArgonPotential(Calculator):
+  """Wrapper for Argon (Unpublished) calculators.
+
+  Geometries in a batch are evaluated sequantially.
+  The analytical Hessian is not available.
+
+  Args:
+    symbols: ``(N,)`` atomic symbols.
+    calc: Argon calculator.
+  """
+
+  def __init__(self, calc, root=None, fname_qc_base=None):
+    self.calc = calc
+    self.root = root
+    self.fname_qc_base = fname_qc_base
+
+  def _energy_forces_batch(self, x):
+    ener = np.empty(len(x))
+    force = np.empty_like(x)
+    for i, pos, in enumerate(x):
+      ener[i] = self.calc.get_energy(self.root, self.fname_qc_base, pos)
+      force[i] = -self.calc.get_gradient(self.root, self.fname_qc_base, pos)
+    return ener, force
+

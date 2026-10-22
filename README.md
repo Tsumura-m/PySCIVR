@@ -76,7 +76,7 @@ In VS Code, select `.venv/bin/python` as the Python interpreter or the notebook 
 ## Documentation
 
 The API reference and the executed tutorials are available at
-[https://tsumura-m.github.io/PySCIVR](https://tsumura-m.github.io/PySCIVR).
+https://tsumura-m.github.io/PySCIVR/.
 
 The documentation can also be built locally:
 

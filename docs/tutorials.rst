@@ -10,6 +10,13 @@ in curvilinear coordinates, and spectra. They use simple examples that run in a 
 The following tutorials, from ``Rotational Spectra of Hydrogen``, compute the spectra of actual molecules with the phase-space sampling,
 reproducing the calculations in the paper.
 
+The advanced tutorials show calculations not covered in the paper, and how to extend PySCIVR
+to other coordinates and molecules.
+
+- ``Pyramidal Inversion Spectra of Ammonia`` defines custom coordinates (the out-of-plane angle and the differences of bond angles) by ``register_kind``, constructs a one-dimensional Hamiltonian by the rigid scan, and compares the levels with the exact results of the discrete variable representation.
+
+- ``Ro-vibrational Spectra of Methane`` uses the normal mode coordinate in the body frame together with the rotation, which describes the rovibrational motion without constructing the rovibrational Hamiltonian.
+
 
 Running the tutorials
 ---------------------
@@ -46,3 +53,10 @@ Download them as needed and place them in ``docs/notebooks``.
    notebooks/hydrogen_rovib
    notebooks/methane_pure_rot
    notebooks/butane_torsion
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Advanced
+
+   notebooks/ammonia_inversion
+   notebooks/methane_rovib

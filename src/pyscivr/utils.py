@@ -207,3 +207,4 @@ def get_inertia(posi: ArrayLike, mass: ArrayLike) -> NDArray[np.float64]:
     inertia -= xy
     inertia = np.einsum("a,axy->xy", mass, inertia)
     return inertia
+

@@ -300,7 +300,7 @@ class InternalCoordinates:
     def __repr__(self) -> str:
         lines = ["InternalCoordinates:"]
         for i, c in enumerate(self.coords):
-            lines.append(f"  {i:3d}: {c.kind:15s} {c.atom_indices} value_ref={c.value_ref:.6f}")
+            lines.append(f"  {i:3d}: {c.name:15s} value_ref={c.value_ref:.6f}")
         return "\n".join(lines)
 
     def __len__(self) -> int:
@@ -439,8 +439,13 @@ class InternalCoordinates:
             self.coords.append(Coordinate("euler", (), float(t), f"euler_{d}", topology))
 
     def add_normal_mode(self, mode_vector: ArrayLike, name: str | None = None) -> None:  # global
-        """Not implemented yet."""
-        raise NotImplementedError("Normal mode coordinates are not implemented yet.")
+        """Add a normal mode coordinate.
+
+        Args:
+            mode_vector: ``(3N,)`` normal mode vector.
+            name: Name of the coordinate.
+                If ``None``, a default name is generated based on the number of existing normal modes
+        """
         mode_vector = np.asarray(mode_vector, dtype=float).reshape(-1)
         assert mode_vector.shape == (3 * self.n_atom,), f"Invalid mode vector shape: {mode_vector.shape}"
         value_ref = 0.0
@@ -629,7 +634,7 @@ class InternalCoordinates:
         self.get_const_batch = jax.jit(jax.vmap(self.get_const, in_axes=0, out_axes=0))
         self.get_const_grad_batch = jax.jit(jax.vmap(self.get_const_grad, in_axes=0, out_axes=0))
 
-        print(f"Build complete: {len(self)} coordinates")
+        print(f"Build complete: {len(coords)} coordinates")
 
     def find_coordinate(self, kind: str, atoms: Sequence[int]) -> tuple[int, float, str, str]:
         """Find a local coordinate after :meth:`build` from its kind and atom indices.

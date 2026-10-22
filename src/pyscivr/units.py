@@ -1,7 +1,7 @@
 """Physical constants and unit conversion factors in the internal unit system.
 
-The internal unit system is Angstrom (length), eV (energy), atomic mass unit (mass),
-elementary charge (charge), Kelvin (temperature) and mol (amount of substance).
+The internal unit system is Angstrom [length], eV [energy], atomic mass unit (amu) [mass],
+elementary charge [charge], Kelvin [temperature] and mol [amount of substance].
 The time unit is derived as ``Angs * sqrt(amu / eV)`` (about 10.18 fs).
 
 Each name below is the value of the unit or constant in the internal unit system,

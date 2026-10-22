@@ -1,6 +1,14 @@
 pyscivr package
 ===============
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   pyscivr.coordinates
+
 Submodules
 ----------
 
@@ -8,7 +16,6 @@ Submodules
    :maxdepth: 4
 
    pyscivr.basis
-   pyscivr.coordinates
    pyscivr.hessian
    pyscivr.integrators
    pyscivr.potentials

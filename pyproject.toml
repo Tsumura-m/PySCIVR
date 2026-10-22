@@ -21,7 +21,8 @@ ase = [
     "mace-torch",
 ]
 pyscf = [
-    "pyscf"
+    "pyscf",
+    "pyberny>=0.7.0",
 ]
 cuda = [
     "jax[cuda12]",
