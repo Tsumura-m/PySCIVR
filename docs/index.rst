@@ -25,12 +25,26 @@ Citation
 
 If you use PySCIVR in your research, please cite:
 
+   M. Tsumura and Y. Kurashige, "On-The-Fly Dynamics of Multiconfigurational Wave Packets by a Semiclassical Method,"
+   *J. Chem. Theory Comput.* **21**, 11401-11414 (2025).
+
    M. Tsumura and Y. Kurashige, "Semiclassical initial value representation in curvilinear coordinates,"
    ChemRxiv (2026), https://doi.org/10.26434/chemrxiv.15008503
 
 .. code-block:: bibtex
 
-   @article{tsumura2026scivr,
+   @article{tsumura2025fly,
+      title={On-The-Fly Dynamics of Multiconfigurational Wave Packets by a Semiclassical Method},
+      author={Tsumura, Masaya and Kurashige, Yuki},
+      journal={Journal of Chemical Theory and Computation},
+      volume={21},
+      number={22},
+      pages={11401--11414},
+      year={2025},
+      publisher={ACS Publications}
+   }
+
+   @article{tsumura2026semiclassical,
      author  = {Tsumura, Masaya and Kurashige, Yuki},
      title   = {Semiclassical initial value representation in curvilinear coordinates},
      journal = {ChemRxiv},

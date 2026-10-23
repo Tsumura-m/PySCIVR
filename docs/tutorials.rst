@@ -17,6 +17,7 @@ to other coordinates and molecules.
 
 - ``Ro-vibrational Spectra of Methane`` uses the normal mode coordinate in the body frame together with the rotation, which describes the rovibrational motion without constructing the rovibrational Hamiltonian.
 
+- ``Spectra with Custom Initial States`` uses the DVR eigenstates obtained in the ammonia tutorial as the initial states by defining their overlap with the coherent states, and examines the accuracy of the semiclassical propagation level by level.
 
 Running the tutorials
 ---------------------
@@ -60,3 +61,4 @@ Download them as needed and place them in ``docs/notebooks``.
 
    notebooks/ammonia_inversion
    notebooks/methane_rovib
+   notebooks/custom_initial_state

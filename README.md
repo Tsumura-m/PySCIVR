@@ -11,10 +11,17 @@ Herman–Kluk propagator [1] in curvilinear coordinates, based on Ref. [2].
   Cartesian coordinates with constraints, and transformed to curvilinear
   coordinates only when needed.
 - **General curvilinear coordinates**: bond lengths, bond angles, torsions,
-  Euler angles, normal modes, etc. can be combined freely, and reduced-dimensional
-  models are easily constructed by fixing some of them.
-- **Power spectra**: time-averaged SC-IVR [3] spectra can be computed for initial
-  wavepackets given as direct products of one-dimensional coherent states.
+  Euler angles, normal modes in the body frame, etc. can be combined freely, and
+  reduced-dimensional models are easily constructed by fixing some of them.
+  User-defined coordinates can also be added as any differentiable function of
+  the atomic positions written in JAX.
+- **Power spectra with arbitrary initial states**: time-averaged SC-IVR [3]
+  spectra can be computed for initial wavepackets given as direct products of
+  one-dimensional coherent states, or for any initial state by defining its
+  overlap with the coherent states.[4]
+- **Modular design**: trajectories, monodromy matrices, actions, prefactors,
+  overlaps and spectra are computed by separate functions, so that each
+  component can be replaced or reused independently.
 
 ## Examples
 
@@ -102,4 +109,7 @@ by time integration," *J. Chem. Phys.* **110**, 3653–3659 (1999).;
 A. L. Kaledin and W. H. Miller, "Time averaging the semiclassical
 initial value representation for the calculation of vibrational
 energy levels. II. Application to H2CO, NH3, CH4, CH2D2,"
-*J. Chem. Phys.* **119**, 3078–3084 (2003). 
+*J. Chem. Phys.* **119**, 3078–3084 (2003).
+
+[4] M. Tsumura and Y. Kurashige, "On-The-Fly Dynamics of Multiconfigurational
+Wave Packets by a Semiclassical Method," *J. Chem. Theory Comput.* **21**, 11401-11414 (2025).
