@@ -184,7 +184,7 @@ def get_inertia(posi: ArrayLike, mass: ArrayLike) -> NDArray[np.float64]:
 
     .. math::
 
-        I = \sum_a m_a (r_a^T r_a - r_a r_a^T)
+        I = \sum_a m_a ((r_a^T r_a) I_3 - r_a r_a^T)
 
     Args:
         posi: ``(N, 3)`` positions.

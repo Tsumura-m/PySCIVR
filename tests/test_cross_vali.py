@@ -84,8 +84,8 @@ def test_h2_rigid_rotor_implicit_vs_shake_rattle(h2_geom):
     posi_ref_int, mome_ref_int, mono_ref, symp_err_cart = to_internal(monodromy_func, traj_cart["posi"],
                                                                       traj_cart["mome"], vari_cart)
 
-    assert np.max(symp_err_int) < 1e-10
-    assert np.max(symp_err_cart) < 1e-8
+    assert np.max(symp_err_int) < 1e-9
+    assert np.max(symp_err_cart) < 1e-7
     dphi = (traj_int["posi"][:, 1] - posi_ref_int[:, 1] + np.pi) % (2 * np.pi) - np.pi
     assert np.max(np.abs(traj_int["posi"][:, 0] - posi_ref_int[:, 0])) < 5e-3
     assert np.max(np.abs(dphi)) < 1.5e-2

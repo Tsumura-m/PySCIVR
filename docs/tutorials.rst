@@ -3,26 +3,27 @@ Tutorials
 
 These tutorials show the practical usage of PySCIVR step by step.
 
-The first five tutorials, from ``Single Point Calculation`` to ``Spectrum Calculation``, go through the whole procedure of
+The first five tutorials, from ``1. Single Point Calculation`` to ``5. Spectrum Calculation``, go through the whole procedure of
 an SC-IVR calculation: potentials, constrained dynamics, Hessians and monodromy matrices, direct dynamics
 in curvilinear coordinates, and spectra. They use simple examples that run in a short time.
 
-The following tutorials, from ``Rotational Spectra of Hydrogen``, compute the spectra of actual molecules with the phase-space sampling,
+The following tutorials, from ``6. Rotational Spectra of Hydrogen``, compute the spectra of actual molecules with the phase-space sampling,
 reproducing the calculations in the paper.
 
 The advanced tutorials show calculations not covered in the paper, and how to extend PySCIVR
 to other coordinates and molecules.
 
-- ``Pyramidal Inversion Spectra of Ammonia`` defines custom coordinates (the out-of-plane angle and the differences of bond angles) by ``register_kind``, constructs a one-dimensional Hamiltonian by the rigid scan, and compares the levels with the exact results of the discrete variable representation.
+- ``10. Pyramidal Inversion Spectra of Ammonia`` defines custom coordinates (the out-of-plane angle and the differences of bond angles) by ``register_kind``, constructs a one-dimensional Hamiltonian by the rigid scan, and compares the levels with the exact results of the discrete variable representation.
 
-- ``Ro-vibrational Spectra of Methane`` uses the normal mode coordinate in the body frame together with the rotation, which describes the rovibrational motion without constructing the rovibrational Hamiltonian.
+- ``11. Ro-vibrational Spectra of Methane`` uses the normal mode coordinate in the body frame together with the rotation, which describes the rovibrational motion without constructing the rovibrational Hamiltonian.
 
-- ``Spectra with Custom Initial States`` uses the DVR eigenstates obtained in the ammonia tutorial as the initial states by defining their overlap with the coherent states, and examines the accuracy of the semiclassical propagation level by level.
+- ``12. Spectra with Custom Initial States`` uses the DVR eigenstates obtained in the ammonia tutorial as the initial states by defining their overlap with the coherent states, and examines the accuracy of the semiclassical propagation level by level.
 
 Running the tutorials
 ---------------------
 
-The tutorials are Jupyter notebooks in ``docs/notebooks``. Move to this directory  and start Jupyter Lab in the virtual environment of PySCIVR:
+The tutorials are Jupyter notebooks in ``docs/notebooks``. Move to this directory
+ and start Jupyter Lab in the virtual environment of PySCIVR:
 
 .. code-block:: bash
 
@@ -40,25 +41,25 @@ Download them as needed and place them in ``docs/notebooks``.
    :maxdepth: 1
    :caption: Basics
 
-   notebooks/single_point
-   notebooks/constrained_dynamics
-   notebooks/hessian_and_variation
-   notebooks/implicit_verlet
-   notebooks/spectrum_calculation
+   notebooks/1_single_point
+   notebooks/2_constrained_dynamics
+   notebooks/3_hessian_and_variation
+   notebooks/4_direct_dynamics
+   notebooks/5_spectrum_calculation
 
 .. toctree::
    :maxdepth: 1
    :caption: Examples
 
-   notebooks/hydrogen_pure_rot
-   notebooks/hydrogen_rovib
-   notebooks/methane_pure_rot
-   notebooks/butane_torsion
+   notebooks/6_hydrogen_pure_rot
+   notebooks/7_hydrogen_rovib
+   notebooks/8_methane_pure_rot
+   notebooks/9_butane_torsion
 
 .. toctree::
    :maxdepth: 1
    :caption: Advanced
 
-   notebooks/ammonia_inversion
-   notebooks/methane_rovib
-   notebooks/custom_initial_state
+   notebooks/10_ammonia_inversion
+   notebooks/11_methane_rovib
+   notebooks/12_custom_initial_state

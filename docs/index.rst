@@ -6,7 +6,7 @@
 PySCIVR
 =======
 
-PySCIVR is a Python package for wavepacket dynamics with the semiclassical Herman–Kluk propagator
+PySCIVR is a Python package for wavepacket dynamics with the semiclassical Herman-Kluk propagator
 in curvilinear coordinates. The dynamics is propagated on the fly in redundant Cartesian coordinates
 with constraints, which is robust to coordinate singularities, and power spectra are computed
 by the time-averaged SC-IVR.
@@ -29,7 +29,7 @@ If you use PySCIVR in your research, please cite:
    *J. Chem. Theory Comput.* **21**, 11401-11414 (2025).
 
    M. Tsumura and Y. Kurashige, "Semiclassical initial value representation in curvilinear coordinates,"
-   ChemRxiv (2026), https://doi.org/10.26434/chemrxiv.15008503
+   *J. Chem. Phys.* **165**, 164119 (2026).
 
 .. code-block:: bibtex
 
@@ -45,12 +45,15 @@ If you use PySCIVR in your research, please cite:
    }
 
    @article{tsumura2026semiclassical,
-     author  = {Tsumura, Masaya and Kurashige, Yuki},
-     title   = {Semiclassical initial value representation in curvilinear coordinates},
-     journal = {ChemRxiv},
-     year    = {2026},
-     doi     = {10.26434/chemrxiv.15008503},
-   }
+      title = {Semiclassical initial value representation in curvilinear coordinates},
+      author = {Tsumura, Masaya and Kurashige, Yuki},
+      journal = {The Journal of Chemical Physics},
+      volume = {165},
+      number = {16},
+      pages = {164119},
+      year = {2026},
+      publisher = {AIP Publishing}
+    }
 
 .. toctree::
    :maxdepth: 2

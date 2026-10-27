@@ -280,7 +280,7 @@ class H2SplinePotential(Calculator):
 class ASEPotential(Calculator):
     """Wrapper for ASE calculators.
 
-    Geometries in a batch are evaluated sequantially.
+    Geometries in a batch are evaluated sequentially.
     The analytical Hessian is not available.
 
     Args:
@@ -407,12 +407,13 @@ class DFTPotential(Calculator):
 class ArgonPotential(Calculator):
   """Wrapper for Argon (Unpublished) calculators.
 
-  Geometries in a batch are evaluated sequantially.
+  Geometries in a batch are evaluated sequentially.
   The analytical Hessian is not available.
 
   Args:
-    symbols: ``(N,)`` atomic symbols.
     calc: Argon calculator.
+    root: tuple that specifying the bra (and ket) state of the property will be returned.
+    fname_qc_base: File name (w/o extension) of QC input/output file.
   """
 
   def __init__(self, calc, root=None, fname_qc_base=None):

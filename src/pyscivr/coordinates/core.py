@@ -155,12 +155,17 @@ def quat_to_rotmat(q: ArrayLike) -> jax.Array:
 def get_rotation_matrix(posi_c: ArrayLike, posi_ref_c: ArrayLike, mass: ArrayLike) -> jax.Array:
     r"""Compute the rotation matrix minimizing the mass-weighted RMSD by Horn's method.
 
-    The rotation matrix between ``posi_c`` and ``posi_ref_c`` is computed
+    The rotation matrix between ``posi_c`` (:math:`q_{c}`) and ``posi_ref_c`` (:math:`q_{\text{ref}, c}`) is computed
     following Horn, J. Opt. Soc. Am. A 4, 629-642 (1987).
 
-    Solves ``min_C (posi_ref_c C^T - posi_c)^T M (posi_ref_c C^T - posi_c)``
-    with ``M = diag(mass)``. ``C`` rotates ``posi_ref_c`` to ``posi_c``
-    (``posi_ref_c C^T ~ posi_c``).
+    Solves the optimization problem:
+
+    .. math::
+
+        \min_{C \in SO(3)} \mathrm{tr}\left[(q_{\text{ref}, c} C^T - q_{c})^T M (q_{\text{ref}, c} C^T -  q_{c} )\right]
+
+    with :math:`M = \text{diag}(\text{mass})`. :math:`C` rotates :math:`q_{\text{ref}, c}` to :math:`q_{c}`
+    (:math:`q_{\text{ref}, c} C^T \approx q_{c}`).
 
     Args:
         posi_c: ``(N, 3)`` mass-centered coordinates.
@@ -168,7 +173,7 @@ def get_rotation_matrix(posi_c: ArrayLike, posi_ref_c: ArrayLike, mass: ArrayLik
         mass: ``(N,)`` atomic masses.
 
     Returns:
-        ``(3, 3)`` rotation matrix ``C``.
+        ``(3, 3)`` rotation matrix :math:`C`.
 
     Note:
         :math:`C` is obtained from the eigenvector :math:`q` of the largest eigenvalue
@@ -444,7 +449,7 @@ class InternalCoordinates:
         Args:
             mode_vector: ``(3N,)`` normal mode vector.
             name: Name of the coordinate.
-                If ``None``, a default name is generated based on the number of existing normal modes
+                If ``None``, a default name is generated based on the number of existing normal modes.
         """
         mode_vector = np.asarray(mode_vector, dtype=float).reshape(-1)
         assert mode_vector.shape == (3 * self.n_atom,), f"Invalid mode vector shape: {mode_vector.shape}"

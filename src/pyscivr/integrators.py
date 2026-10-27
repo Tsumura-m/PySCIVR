@@ -181,7 +181,7 @@ def _build_shake_rattle(
     const_grad_func = coord_const.get_const_grad
 
     def get_G_mwc(posi_mwc: jax.Array) -> jax.Array:
-        """Get the gradient of the constraints in the mass-weighted coordinates."""
+        """Get the gradient of the constraints in mass-weighted coordinates."""
         return const_grad_func(posi_mwc / sqrt_mass_flat) / sqrt_mass_flat[None, :]
 
     @jax.jit
@@ -241,7 +241,7 @@ def _build_shake_rattle(
 class ShakeRattle(Integrator):
     r"""SHAKE/RATTLE integrator with holonomic constraints :math:`F(q) = 0`.
 
-    The integration is performed in the mass-weighted coordinate (Eqs. (25)-(31) in the paper).
+    The integration is performed in mass-weighted coordinates (Eqs. (25)-(31) in the paper).
     The initial momenta are projected to the tangent space of the constraints.
 
     .. math::
@@ -451,7 +451,7 @@ class ImplicitVerlet:
         metric_func: Function to compute the metric :math:`G(Q)`, ``(m,)`` -> ``(m, m)``.
         potential_func: Function to compute the potential :math:`V(Q)`, ``(m,)`` -> scalar.
             If ``None``, the potential is assumed to be zero.
-        normalize: If ``True``, the positions are normalized to unit norm and the momenta are the projected onto
+        normalize: If ``True``, the positions are normalized to unit norm and the momenta are projected onto
             the tangent space at every step. (``q^T q = 1, p^T q = 0``). This is intended for the quaternion dynamics.
         max_iter_newton: Maximum number of iterations for Newton's method.
         tol_newton: Tolerance for Newton's method convergence.

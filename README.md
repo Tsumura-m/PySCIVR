@@ -14,23 +14,14 @@ Herman–Kluk propagator [1] in curvilinear coordinates, based on Ref. [2].
   Euler angles, normal modes in the body frame, etc. can be combined freely, and
   reduced-dimensional models are easily constructed by fixing some of them.
   User-defined coordinates can also be added as any differentiable function of
-  the atomic positions written in JAX.
+  the atomic positions written in [JAX](https://docs.jax.dev/en/latest/notebooks/thinking_in_jax.html).
 - **Power spectra with arbitrary initial states**: time-averaged SC-IVR [3]
   spectra can be computed for initial wavepackets given as direct products of
   one-dimensional coherent states, or for any initial state by defining its
-  overlap with the coherent states.[4]
+  overlap with the coherent states [4].
 - **Modular design**: trajectories, monodromy matrices, actions, prefactors,
   overlaps and spectra are computed by separate functions, so that each
   component can be replaced or reused independently.
-
-## Examples
-
-The tutorials in [`docs/notebooks`](https://github.com/Tsumura-m/PySCIVR/tree/main/docs/notebooks) reproduce the calculations in Ref. [2]
-and more, which are the practical way to learn how to use the package:
-
-- Pure rotation and rovibration of H2 (linear molecule)
-- Pure rotation of CH4 (nonlinear molecule)
-- Torsional dynamics of butane
 
 ## Installation
 
@@ -69,6 +60,17 @@ uv python pin 3.14
 uv sync
 ```
 
+## Examples
+
+The tutorials in [`docs/notebooks`](https://github.com/Tsumura-m/PySCIVR/tree/main/docs/notebooks) reproduce the calculations in Ref. [2]
+and provide additional examples, offering a practical way to learn how to use the package:
+
+- Pure rotation and rovibration of H2 (linear molecule)
+- Pure rotation of CH4 (nonlinear molecule)
+- Torsional dynamics of butane
+
+etc.
+
 ### Jupyter Lab and VS Code
 
 The virtual environment can also be used from Jupyter Lab or VS Code.
@@ -101,8 +103,7 @@ non-spreading wavepackets in dynamics calculations,"
 *Chem. Phys.* **91**, 27–34 (1984).
 
 [2] M. Tsumura and Y. Kurashige, "Semiclassical initial value representation in
-curvilinear coordinates," *J. Chem. Phys.* (Under Review);
-ChemRxiv, https://doi.org/10.26434/chemrxiv.15008503
+curvilinear coordinates," *J. Chem. Phys.* **165**, 164119 (2026).
 
 [3] Y. Elran and K. G. Kay, "Improving the efficiency of the Herman–Kluk propagator
 by time integration," *J. Chem. Phys.* **110**, 3653–3659 (1999).;

@@ -36,6 +36,7 @@ def save_trajectory(fpath: str, traj: dict[str, Any], **meta: Any) -> None:
     are saved.
     The Lagrange multipliers ``lam`` and ``mu`` are not saved, since they can be
     restored by :func:`load_trajectory`.
+    Additional metadata supplied via ``**meta`` is also saved.
 
     Args:
         fpath: Path to save the trajectory.
@@ -167,7 +168,7 @@ def save_hessian(
 ) -> None:
     r"""Save the Hessians or projected Hessians in a compressed form.
 
-    To save the storage, the ``(S, 3N, 3N)`` full Hessians :math:`K` are saved as
+    To reduce storage requirements, the ``(S, 3N, 3N)`` full Hessians :math:`K` are saved as
     ``K A_A`` of shape ``(S, 3N, m)`` (see also :func:`pyscivr.hessian.eval_hess_active`).
     The projected Hessians ``\mathfrak{P}^T K \mathfrak{P}`` can be restored by :func:`load_hessian`.
 

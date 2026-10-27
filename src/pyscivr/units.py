@@ -20,7 +20,7 @@ Available names:
 - Charge: ``C``, ``e``.
 - Temperature and amount of substance: ``Kelvin``, ``mol``.
 - Time: ``Sec``, ``NanoSec``, ``PicoSec``, ``FemtoSec``.
-- Constants: ``HBar``, ``HPlank``, ``KB``, ``SpeedOfLight``, ``NAvo``, ``Mu0``,
+- Constants: ``HBar``, ``HPlanck``, ``KB``, ``SpeedOfLight``, ``NAvo``, ``Mu0``,
   ``Eps0``, ``E`` (elementary charge), ``MPro``, ``MNeu``, ``MEle``, ``Debye``.
 
 Each constant is also available in SI units with the suffix ``_SI``
@@ -62,7 +62,7 @@ _const_dict = {}
 _const_dict["MPro_SI"] = (sc.m_p, "M/")  #  proton mass
 _const_dict["MNeu_SI"] = (sc.m_n, "M/")  #  neutron mass
 _const_dict["MEle_SI"] = (sc.m_e, "M/")  #  electron mass
-_const_dict["HPlank_SI"] = (sc.Planck, "ET/")  #  Plank constant
+_const_dict["HPlanck_SI"] = (sc.Planck, "ET/")  #  Planck constant
 _const_dict["HBar_SI"] = (sc.hbar, "ET/")  #  Dirac constant
 _const_dict["KB_SI"] = (sc.k, "E/K")  #  Boltzman constant
 _const_dict["SpeedOfLight_SI"] = (sc.c, "L/T")  #  speed of light

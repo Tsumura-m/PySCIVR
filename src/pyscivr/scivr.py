@@ -66,7 +66,7 @@ def get_action(lagrangian: ArrayLike, dt: float) -> NDArray[np.float64]:
         ``(T,)`` running action integral along the trajectory, with ``S_0 = 0``.
 
     Note:
-        At even steps, the integral is computed by Simpson's rule,
+        At even steps, the integral is computed by Simpson's rule.
         At odd steps, the last interval is added by the trapezoidal rule to
         the value at the previous even step.
     """
@@ -87,7 +87,7 @@ def get_lagrangian(ener_tot: ArrayLike, ener_pot: ArrayLike, *, ener_ref: float 
     .. math::
         L = K - (V - V_{\text{ref}}) = E_{\text{tot}} - 2 V + V_{\text{ref}}
 
-    where :math:`K` is the kinetic energy, :math:`V` is the potential energy.
+    where :math:`K` is the kinetic energy and :math:`V` is the potential energy.
 
     Args:
         ener_tot: ``(T,)`` total energy of the trajectory.
@@ -104,7 +104,7 @@ def get_lagrangian(ener_tot: ArrayLike, ener_pot: ArrayLike, *, ener_ref: float 
 
 def get_prefactor(
     mono: ArrayLike, gamma: ArrayLike, valid: ArrayLike | None = None
-) -> tuple[NDArray[np.float64], NDArray[np.complex128]]:
+) -> NDArray[np.complex128]:
     r"""Compute the Herman-Kluk pre-factor with branch tracking of the complex square root (Eq. (6) in the paper).
 
     .. math::
@@ -173,7 +173,7 @@ def get_ta_spectrum_naive(
         overlap: ``(T,)`` overlap :math:`\langle \Psi(0) | Q_t, P_t \rangle`.
         action: ``(T,)`` action integral :math:`S_t`.
         dt: Time step.
-        ener_grid: ``(n_E,)`` energy grid [eV] for the spectrum
+        ener_grid: ``(n_E,)`` energy grid [eV] for the spectrum.
         valid: ``(T,)`` bool. Invalid steps (near singularity) are skipped in
             the amplitude and contribute nothing. If ``None``, all steps are considered valid.
         chunk_size: Number of energy points to compute at once to save memory.

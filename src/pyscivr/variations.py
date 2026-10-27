@@ -55,7 +55,7 @@ def make_vari_propagator(coord_const: InternalCoordinates, dt: float) -> Callabl
     mass_inv_flat = jnp.asarray(coord_const.mass_inv_flat, dtype=float)
 
     def oblique_proj(v: jax.Array, G_prev: jax.Array, G_new: jax.Array) -> jax.Array:  # Eq. (33)
-        """Obique projection of v: P_{n+1} v = (I - M^{-1} G_{n}^T (G_{n+1} M^{-1} G_{n}^T)^{-1} G_{n+1}) v."""
+        """Oblique projection of v: P_{n+1} v = (I - M^{-1} G_{n}^T (G_{n+1} M^{-1} G_{n}^T)^{-1} G_{n+1}) v."""
         metric_obl = G_new @ (mass_inv_flat[:, None] * G_prev.T)  # G_{n+1} M^{-1} G_{n}^T
         return v - mass_inv_flat[:, None] * G_prev.T @ jnp.linalg.solve(metric_obl, G_new @ v)
 

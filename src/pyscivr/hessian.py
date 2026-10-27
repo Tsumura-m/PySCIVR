@@ -113,7 +113,7 @@ def projected_hessian(
     Eq. (50) in the paper:
 
     .. math::
-        \mathfrak{P}^T K P = \mathfrak{P}^T (K A_A) B_A, \quad \mathfrak{P} = A_A B_A
+        \mathfrak{P}^T K \mathfrak{P} = \mathfrak{P}^T (K A_A) B_A, \quad \mathfrak{P} = A_A B_A
 
     Args:
         KA: ``(S, 3N, m)`` ``K A_A`` from :func:`eval_hess_active`.
